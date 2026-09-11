@@ -1,17 +1,169 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>
-      Tab 1
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
+<ion-content [fullscreen]="true" class="login-page">
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Tab 1</ion-title>
-    </ion-toolbar>
-  </ion-header>
+  <!-- Marca -->
+  <div class="brand">
+    <a
+      href="https://www.jamiecoulter.co.uk"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <img
+        src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/logo.png"
+        alt="Logo"
+      />
+    </a>
+  </div>
 
-  <app-explore-container name="Tab 1 page"></app-explore-container>
+  <!-- Login -->
+  <div
+    class="login"
+    [class.test]="isLoginAnimating"
+    [class.testtwo]="isLoginMoving"
+  >
+
+    <div class="login_title" *ngIf="!hideLoginContent">
+      <span>Login to your account</span>
+    </div>
+
+    <div class="login_fields" *ngIf="!hideLoginContent">
+
+      <!-- Usuario -->
+      <div class="login_fields__user">
+
+        <div
+          class="icon"
+          [class.focused]="usernameFocused"
+        >
+          <img
+            src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/user_icon_copy.png"
+            alt="User"
+          />
+        </div>
+
+        <input
+          type="text"
+          placeholder="Username"
+          [(ngModel)]="username"
+          (focus)="usernameFocused = true"
+          (blur)="usernameFocused = false"
+        />
+
+        <div
+          class="validation"
+          [class.visible]="username.length > 0"
+        >
+          <img
+            src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/tick.png"
+            alt="Valid"
+          />
+        </div>
+
+      </div>
+
+      <!-- Contraseña -->
+      <div class="login_fields__password">
+
+        <div
+          class="icon"
+          [class.focused]="passwordFocused"
+        >
+          <img
+            src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/lock_icon_copy.png"
+            alt="Password"
+          />
+        </div>
+
+        <input
+          type="password"
+          placeholder="Password"
+          [(ngModel)]="password"
+          (focus)="passwordFocused = true"
+          (blur)="passwordFocused = false"
+        />
+
+        <div
+          class="validation"
+          [class.visible]="password.length > 0"
+        >
+          <img
+            src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/tick.png"
+            alt="Valid"
+          />
+        </div>
+
+      </div>
+
+      <!-- Botón -->
+      <div class="login_fields__submit">
+
+        <input
+          type="button"
+          value="Log In"
+          (click)="login()"
+        />
+
+        <div class="forgot">
+          <a href="#">Forgotten password?</a>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Éxito -->
+    <div
+      class="success"
+      [class.visible]="loginSuccess"
+    >
+      <h2>Authentication Success</h2>
+      <p>Welcome back</p>
+    </div>
+
+    <!-- Disclaimer -->
+    <div
+      class="disclaimer"
+      *ngIf="!hideLoginContent"
+    >
+      <p>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+        Fusce semper laoreet placerat. Nullam semper auctor justo,
+        rutrum posuere odio vulputate nec.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Autenticando -->
+  <div
+    class="authent"
+    [class.visible]="authenticating"
+    [class.returning]="authReturning"
+  >
+    <img
+      src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/puff.svg"
+      alt="Loading"
+    />
+
+    <p>Authenticating...</p>
+  </div>
+
+  <!-- Crédito -->
+  <div class="love">
+    <p>
+      Made with
+      <img
+        src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/love_copy.png"
+        alt="Love"
+      />
+      by
+      <a
+        href="https://www.jamiecoulter.co.uk"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Jcoulterdesign
+      </a>
+    </p>
+  </div>
+
 </ion-content>
