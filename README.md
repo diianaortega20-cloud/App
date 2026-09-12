@@ -1,39 +1,284 @@
-# Build Your First Ionic App: Photo Gallery (Ionic Angular and Capacitor)
+# App --- Ionic + Angular + PHP + MySQL
 
-Get started with Ionic by building a photo gallery app that runs on iOS, Android, and the web - with just one codebase. This is the complete project referenced in the ["Your First App: Angular" guide](https://ionicframework.com/docs/angular/your-first-app). Follow along to create a complete CRUD (create-read-update-delete) experience.
+Aplicación académica desarrollada con **Ionic y Angular** que integra
+inicio de sesión y un CRUD de usuarios mediante una **API en PHP**,
+**Axios** y una base de datos **MySQL** ejecutada con XAMPP.
 
-Powered by [Ionic Angular](https://ionicframework.com/docs/angular/overview) (web app) and [Capacitor](https://capacitor.ionicframework.com) (native app runtime).
+## Descripción
 
-## How It Works
+El proyecto permite autenticar usuarios y administrar registros de la
+tabla `users`.
 
-After the user navigates to Tab 2 (Photos), they can tap/click on the camera button to open up the device's camera. After taking or selecting a photo, it's stored permanently into the device's filesystem. When the user reopens the app at a later time, the photo images are loaded from the filesystem and displayed again in the gallery. The user can tap on a photo to be presented with the option to remove the photo.
+La aplicación se organiza mediante Tabs:
 
-## Feature Overview
-* App framework: [Angular](https://angular.io)
-* UI components: [Ionic Framework](https://ionicframework.com/docs/components)
-  * Camera button: [Floating Action Button (FAB)](https://ionicframework.com/docs/api/fab)
-  * Photo Gallery display: [Grid](https://ionicframework.com/docs/api/grid)
-  * Delete Photo dialog: [Action Sheet](https://ionicframework.com/docs/api/action-sheet) 
-* Native runtime: [Capacitor](https://capacitor.ionicframework.com)
-  * Taking photos: [Camera API](https://capacitor.ionicframework.com/docs/apis/camera)
-  * Writing photo to the filesystem: [Filesystem API](https://capacitor.ionicframework.com/docs/apis/filesystem)
-  * Storing photo gallery metadata: [Preferences API](https://capacitor.ionicframework.com/docs/apis/preferences)
+-   **Tab 1 --- Administración de usuarios:** consultar, crear,
+    actualizar, cambiar estado y eliminar usuarios.
+-   **Tab 2 --- Mi Perfil:** interfaz destinada a mostrar información
+    del usuario.
+-   **Tab 3:** sección adicional de la aplicación.
 
-## Project Structure
-* Tab2 (Photos) (`src/app/tab2/`): Photo Gallery UI and basic logic.
-* PhotoService (`src/app/services/photo.service.ts`): Logic encapsulating Capacitor APIs, including Camera, Filesystem, and Preferences.
+## Tecnologías
 
-## How to Run
+-   Ionic y Angular
+-   TypeScript, HTML y SCSS
+-   Axios
+-   PHP
+-   MySQL
+-   XAMPP
+-   Git y GitHub
+-   Postman para pruebas de la API
 
-> [!TIP]
-> It's highly recommended to follow along with the [tutorial guide](https://ionicframework.com/docs/angular/your-first-app), which goes into more depth, but this is the fastest way to run the app.
+## Repositorio
 
-> [!IMPORTANT]
-> Requires Node `^22.22.3 || ^24.15.0 || >=26.0.0` (Angular 22).
+Repositorio del proyecto:
 
-1) Install the Ionic CLI (if you haven't already): `npm install -g @ionic/cli`
-2) Clone the repository: `git clone https://github.com/ionic-team/tutorial-photo-gallery-angular`
-3) Navigate to the project directory: `cd tutorial-photo-gallery-angular`
-4) Install the project dependencies: `npm install`
-5) Run the app in your browser: `ionic serve`
-6) Run the app on iOS or Android: Follow the [Capacitor Workflow](https://capacitorjs.com/docs/basics/workflow) guide for instructions on building and running the app on a native platform.
+`https://github.com/diianaortega20-cloud/App.git`
+
+Rama principal: `main`
+
+## Arquitectura
+
+``` text
+Ionic / Angular
+      |
+      | Axios
+      v
+API PHP (Apache / XAMPP)
+      |
+      v
+MySQL
+```
+
+Durante el desarrollo:
+
+``` text
+Frontend: http://localhost:8100
+Backend:  http://localhost/api_9b/
+```
+
+## Estructura principal del frontend
+
+``` text
+src/app/
+├── login/
+├── tab1/
+├── tab2/
+├── tab3/
+├── tabs/
+├── app.component.ts
+└── app.routes.ts
+```
+
+## Backend
+
+La API PHP se encuentra fuera del proyecto Ionic, en XAMPP:
+
+``` text
+C:\xampp\htdocs\api_9b\
+├── config\
+│   └── database.php
+├── login.php
+└── users.php
+```
+
+El archivo `database.php` contiene la configuración de conexión a MySQL
+y no debe publicarse si contiene credenciales sensibles.
+
+## Base de datos
+
+Base de datos: `ionic_login`
+
+Tabla: `users`
+
+  Campo             Descripción
+  ----------------- ------------------------
+  `id`              Identificador
+  `username`        Nombre de usuario
+  `email`           Correo electrónico
+  `name`            Nombre
+  `password_hash`   Hash de contraseña
+  `status`          `active` o `inactive`
+  `created_at`      Fecha de creación
+  `updated_at`      Fecha de actualización
+
+Las contraseñas se almacenan mediante hash. El inicio de sesión utiliza
+`password_verify()` para verificarlas.
+
+## Inicio de sesión
+
+El frontend envía mediante Axios una petición:
+
+``` text
+POST http://localhost/api_9b/login.php
+```
+
+Ejemplo de cuerpo:
+
+``` json
+{
+  "username": "usuario",
+  "password": "contraseña"
+}
+```
+
+Si las credenciales son válidas, la API devuelve los datos del usuario y
+la aplicación navega hacia las Tabs.
+
+## CRUD de usuarios
+
+El CRUD de Tab 1 se comunica con:
+
+``` text
+http://localhost/api_9b/users.php
+```
+
+Métodos implementados:
+
+  Método      Función
+  ----------- ------------------------------------------------
+  `GET`       Consultar usuarios
+  `POST`      Crear usuario
+  `PUT`       Actualizar usuario
+  `PATCH`     Actualizar parcialmente, por ejemplo el estado
+  `DELETE`    Eliminar usuario
+  `OPTIONS`   Atender solicitudes CORS
+
+Ejemplos:
+
+``` text
+GET    /api_9b/users.php
+GET    /api_9b/users.php?id=2
+POST   /api_9b/users.php
+PUT    /api_9b/users.php?id=2
+PATCH  /api_9b/users.php?id=2
+DELETE /api_9b/users.php?id=2
+```
+
+Ejemplo para crear un usuario:
+
+``` json
+{
+  "username": "usuario",
+  "email": "usuario@example.com",
+  "name": "Nombre Usuario",
+  "password": "contraseña",
+  "status": "active"
+}
+```
+
+## CORS
+
+La API configura CORS para permitir la comunicación entre el frontend
+servido por Ionic y el backend servido por Apache durante el desarrollo.
+
+## Tab 1 --- Administración de usuarios
+
+Tab 1 es la interfaz del CRUD. Permite registrar usuarios, consultar los
+existentes, editar información, activar o desactivar usuarios y eliminar
+registros. Axios conecta estas acciones con `users.php`.
+
+## Tab 2 --- Mi Perfil
+
+Tab 2 comparte el estilo visual del login y está destinada a mostrar
+datos como nombre, usuario, correo y estado. La pantalla contempla una
+tarjeta de perfil y un botón de cierre de sesión.
+
+## Diseño
+
+Login, Tab 1 y Tab 2 comparten una paleta basada en:
+
+``` text
+Fondo:    #ea5c54 → #bb6dec
+Paneles:  #35394a → #1f222e
+Acento:   #dc6180
+Texto:    #afb1be
+```
+
+La interfaz utiliza la fuente **Gudea**.
+
+## Instalación del frontend
+
+Clonar el repositorio:
+
+``` bash
+git clone https://github.com/diianaortega20-cloud/App.git
+cd App
+```
+
+Instalar dependencias:
+
+``` bash
+npm install
+```
+
+Ejecutar:
+
+``` bash
+ionic serve
+```
+
+La aplicación estará disponible normalmente en `http://localhost:8100`.
+
+## Requisitos del backend
+
+Para utilizar las funciones conectadas a la API se requiere XAMPP con
+Apache y MySQL activos, la API ubicada en `htdocs/api_9b`, la base de
+datos `ionic_login`, la tabla `users` y una configuración válida en
+`config/database.php`.
+
+## Flujo del sistema
+
+``` text
+Usuario
+   |
+   v
+Login Ionic
+   |
+   | Axios
+   v
+login.php
+   |
+   v
+MySQL / users
+   |
+   v
+Tabs
+   |
+   +--> Tab 1: CRUD de usuarios
+   +--> Tab 2: Mi Perfil
+   +--> Tab 3
+```
+
+## Seguridad
+
+No deben publicarse contraseñas reales de MySQL, tokens, API keys,
+secret keys, archivos `.env` con secretos ni llaves privadas.
+
+Antes de subir cambios conviene revisar:
+
+``` bash
+git status
+git diff --cached
+```
+
+## Control de versiones
+
+Flujo básico:
+
+``` bash
+git status
+git add <archivos>
+git commit -m "Descripción de los cambios"
+git push
+```
+
+## Estado del proyecto
+
+El proyecto contempla inicio de sesión con Ionic/Axios/PHP/MySQL,
+navegación mediante Tabs, API PHP de usuarios, CRUD en Tab 1, métodos
+GET/POST/PUT/PATCH/DELETE, CORS, interfaz responsive, pantalla de perfil
+en Tab 2 y control de versiones con Git/GitHub.
+
+## Autor
+
+Diana Ortega Corchado

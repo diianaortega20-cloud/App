@@ -1,6 +1,260 @@
 <ion-content [fullscreen]="true">
-  <div style="padding: 30px;">
-    <h1>Bienvenido</h1>
-    <p>Has iniciado sesión correctamente.</p>
+
+  <div class="contenedor">
+
+    <h1 class="logo">
+      <span class="nombre-empresa">CRUD</span>
+      Usuarios
+    </h1>
+
+    <div class="wrapper">
+
+      <div class="info-empresa">
+
+        <h3>Administración de Usuarios</h3>
+
+        <p>
+          Crea, edita y administra los usuarios del sistema.
+        </p>
+
+      </div>
+
+
+      <div class="contacto">
+
+        <h3>
+          {{ editing ? 'Editar usuario' : 'Nuevo usuario' }}
+        </h3>
+
+        <form
+          class="formulario"
+          (ngSubmit)="saveUser()"
+        >
+
+          <p>
+            <label>Usuario</label>
+
+            <input
+              type="text"
+              name="username"
+              [(ngModel)]="form.username"
+              required
+            >
+          </p>
+
+
+          <p>
+            <label>Nombre</label>
+
+            <input
+              type="text"
+              name="name"
+              [(ngModel)]="form.name"
+              required
+            >
+          </p>
+
+
+          <p>
+            <label>Correo</label>
+
+            <input
+              type="email"
+              name="email"
+              [(ngModel)]="form.email"
+              required
+            >
+          </p>
+
+
+          <p>
+            <label>
+              Contraseña
+              <span *ngIf="editing">
+                (opcional)
+              </span>
+            </label>
+
+            <input
+              type="password"
+              name="password"
+              [(ngModel)]="form.password"
+            >
+          </p>
+
+
+          <p class="full">
+            <label>Estado</label>
+
+            <select
+              name="status"
+              [(ngModel)]="form.status"
+            >
+              <option value="active">
+                Activo
+              </option>
+
+              <option value="inactive">
+                Inactivo
+              </option>
+            </select>
+          </p>
+
+
+          <p class="full botones-form">
+
+            <button
+              type="submit"
+              class="boton-enviar"
+            >
+              {{ editing ? 'Actualizar usuario' : 'Crear usuario' }}
+            </button>
+
+            <button
+              *ngIf="editing"
+              type="button"
+              class="boton-cancelar"
+              (click)="resetForm()"
+            >
+              Cancelar
+            </button>
+
+          </p>
+
+        </form>
+
+
+        <div
+          *ngIf="message"
+          class="mensaje success"
+        >
+          {{ message }}
+        </div>
+
+
+        <div
+          *ngIf="errorMessage"
+          class="mensaje error"
+        >
+          {{ errorMessage }}
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="usuarios">
+
+      <h2>Usuarios registrados</h2>
+
+      <p *ngIf="loading">
+        Cargando usuarios...
+      </p>
+
+
+      <div class="tabla-container">
+
+        <table *ngIf="!loading">
+
+          <thead>
+
+            <tr>
+
+              <th>ID</th>
+
+              <th>Usuario</th>
+
+              <th>Nombre</th>
+
+              <th>Correo</th>
+
+              <th>Estado</th>
+
+              <th>Acciones</th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            <tr *ngFor="let user of users">
+
+              <td>
+                {{ user.id }}
+              </td>
+
+              <td>
+                {{ user.username }}
+              </td>
+
+              <td>
+                {{ user.name }}
+              </td>
+
+              <td>
+                {{ user.email }}
+              </td>
+
+              <td>
+
+                <span
+                  class="estado"
+                  [class.activo]="user.status === 'active'"
+                  [class.inactivo]="user.status === 'inactive'"
+                >
+                  {{ user.status }}
+                </span>
+
+              </td>
+
+              <td class="acciones">
+
+                <button
+                  type="button"
+                  class="editar"
+                  (click)="editUser(user)"
+                >
+                  Editar
+                </button>
+
+
+                <button
+                  type="button"
+                  class="estado-btn"
+                  (click)="toggleStatus(user)"
+                >
+                  {{
+                    user.status === 'active'
+                    ? 'Desactivar'
+                    : 'Activar'
+                  }}
+                </button>
+
+
+                <button
+                  type="button"
+                  class="eliminar"
+                  [disabled]="user.id === 1"
+                  (click)="deleteUser(user)"
+                >
+                  Eliminar
+                </button>
+
+              </td>
+
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
   </div>
+
 </ion-content>
