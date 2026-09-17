@@ -282,3 +282,40 @@ en Tab 2 y control de versiones con Git/GitHub.
 ## Autor
 
 Diana Ortega Corchado
+
+## Capa de acceso a datos
+
+La aplicación utiliza servicios de Angular para separar la lógica
+de acceso a datos de los componentes de la interfaz.
+
+### Modelo principal
+
+- User
+- UserForm
+
+### Servicio
+
+- UserService
+
+### Tecnologías utilizadas
+
+- Ionic
+- Angular
+- TypeScript
+- Axios
+- PHP
+- MySQL
+
+### Operaciones CRUD
+
+- GET - Consultar usuarios
+- POST - Crear usuarios
+- PUT - Actualizar usuarios
+- PATCH - Cambiar estado
+- DELETE - Eliminar usuarios
+
+### Estructura
+
+Tab1Page utiliza UserService para realizar las operaciones de acceso
+a datos. UserService se comunica mediante Axios con la API PHP,
+la cual realiza las operaciones correspondientes sobre MySQL.

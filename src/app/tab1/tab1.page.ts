@@ -1,27 +1,20 @@
-import { Component, OnInit } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  OnInit
+} from '@angular/core';
+
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonContent } from '@ionic/angular';
-import axios from 'axios';
 
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  name: string;
-  status: 'active' | 'inactive';
-  created_at?: string;
-  updated_at?: string;
-}
+import {
+  User,
+  UserForm
+} from '../models/user.interface';
 
-interface UserForm {
-  id: number | null;
-  username: string;
-  email: string;
-  name: string;
-  password: string;
-  status: 'active' | 'inactive';
-}
+import { UserService } from '../services/user.service';
+
 
 @Component({
   selector: 'app-tab1',
@@ -36,10 +29,16 @@ interface UserForm {
 })
 export class Tab1Page implements OnInit {
 
-  private readonly apiUrl =
-    'http://localhost/api_9b/users.php';
+  // ==========================================
+  // Lista de usuarios
+  // ==========================================
 
   users: User[] = [];
+
+
+  // ==========================================
+  // Formulario
+  // ==========================================
 
   form: UserForm = {
     id: null,
@@ -50,27 +49,50 @@ export class Tab1Page implements OnInit {
     status: 'active'
   };
 
+
+  // ==========================================
+  // Estados de la interfaz
+  // ==========================================
+
   editing = false;
   loading = false;
 
   message = '';
   errorMessage = '';
 
+
+  // ==========================================
+  // Constructor
+  // ==========================================
+
+  constructor(
+    private userService: UserService,
+    private cdr: ChangeDetectorRef
+  ) {}
+
+
+  // ==========================================
+  // Al iniciar Tab1
+  // ==========================================
+
   ngOnInit(): void {
     this.loadUsers();
   }
 
+
+  // ==========================================
+  // GET - Consultar usuarios
+  // ==========================================
+
   async loadUsers(): Promise<void> {
+
     this.loading = true;
     this.errorMessage = '';
 
     try {
 
-      const response = await axios.get(this.apiUrl);
-
-      if (response.data.success) {
-        this.users = response.data.users;
-      }
+      this.users =
+        await this.userService.getUsers();
 
     } catch (error: any) {
 
@@ -81,74 +103,109 @@ export class Tab1Page implements OnInit {
     } finally {
 
       this.loading = false;
+
+      // Fuerza la actualización visual después
+      // de finalizar la petición realizada con Axios
+      this.cdr.detectChanges();
     }
   }
+
+
+  // ==========================================
+  // POST / PUT - Crear o actualizar usuario
+  // ==========================================
 
   async saveUser(): Promise<void> {
 
     this.message = '';
     this.errorMessage = '';
 
+    // Validar campos obligatorios
     if (
       !this.form.username.trim() ||
       !this.form.email.trim() ||
       !this.form.name.trim()
     ) {
+
       this.errorMessage =
         'Usuario, nombre y correo son obligatorios.';
+
       return;
     }
 
-    if (!this.editing && !this.form.password) {
+
+    // La contraseña es obligatoria
+    // únicamente al crear un usuario
+    if (
+      !this.editing &&
+      !this.form.password
+    ) {
+
       this.errorMessage =
         'La contraseña es obligatoria para usuarios nuevos.';
+
       return;
     }
+
 
     try {
 
-      if (this.editing && this.form.id !== null) {
+      // ======================================
+      // PUT - Actualizar
+      // ======================================
 
-        const response = await axios.put(
-          `${this.apiUrl}?id=${this.form.id}`,
-          {
-            username: this.form.username,
-            email: this.form.email,
-            name: this.form.name,
-            password: this.form.password,
-            status: this.form.status
-          }
-        );
+      if (
+        this.editing &&
+        this.form.id !== null
+      ) {
 
-        this.message = response.data.message;
+        const response =
+          await this.userService.updateUser(
+            this.form
+          );
 
-      } else {
+        this.message =
+          response.message;
 
-        const response = await axios.post(
-          this.apiUrl,
-          {
-            username: this.form.username,
-            email: this.form.email,
-            name: this.form.name,
-            password: this.form.password,
-            status: this.form.status
-          }
-        );
-
-        this.message = response.data.message;
       }
 
+      // ======================================
+      // POST - Crear
+      // ======================================
+
+      else {
+
+        const response =
+          await this.userService.createUser(
+            this.form
+          );
+
+        this.message =
+          response.message;
+      }
+
+
+      // Limpiar formulario
       this.resetForm();
 
+      // Actualizar lista
       await this.loadUsers();
+
 
     } catch (error: any) {
 
       this.errorMessage =
         error?.response?.data?.message ||
         'No fue posible guardar el usuario.';
+
+      this.cdr.detectChanges();
     }
   }
+
+
+  // ==========================================
+  // Cargar usuario en formulario para editar
+  // ==========================================
 
   editUser(user: User): void {
 
@@ -163,73 +220,111 @@ export class Tab1Page implements OnInit {
       status: user.status
     };
 
+
+    // Subir al formulario
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
     });
   }
 
-  async toggleStatus(user: User): Promise<void> {
 
-    const newStatus: 'active' | 'inactive' =
-      user.status === 'active'
-        ? 'inactive'
-        : 'active';
+  // ==========================================
+  // PATCH - Cambiar estado
+  // ==========================================
+
+  async toggleStatus(
+    user: User
+  ): Promise<void> {
+
+    this.message = '';
+    this.errorMessage = '';
 
     try {
 
-      const response = await axios.patch(
-        `${this.apiUrl}?id=${user.id}`,
-        {
-          status: newStatus
-        }
-      );
+      const response =
+        await this.userService.updateStatus(
+          user
+        );
 
-      this.message = response.data.message;
+      this.message =
+        response.message;
 
+      // Recargar usuarios
       await this.loadUsers();
+
 
     } catch (error: any) {
 
       this.errorMessage =
         error?.response?.data?.message ||
         'No fue posible cambiar el estado.';
+
+      this.cdr.detectChanges();
     }
   }
 
-  async deleteUser(user: User): Promise<void> {
 
+  // ==========================================
+  // DELETE - Eliminar usuario
+  // ==========================================
+
+  async deleteUser(
+    user: User
+  ): Promise<void> {
+
+    this.message = '';
+    this.errorMessage = '';
+
+
+    // Evitar eliminar administrador principal
     if (user.id === 1) {
+
       this.errorMessage =
         'No elimines el administrador principal.';
+
       return;
     }
+
 
     const confirmed = confirm(
       `¿Eliminar al usuario ${user.username}?`
     );
 
+
     if (!confirmed) {
       return;
     }
 
+
     try {
 
-      const response = await axios.delete(
-        `${this.apiUrl}?id=${user.id}`
-      );
+      const response =
+        await this.userService.deleteUser(
+          user.id
+        );
 
-      this.message = response.data.message;
+      this.message =
+        response.message;
 
+      // Recargar lista
       await this.loadUsers();
+
 
     } catch (error: any) {
 
       this.errorMessage =
         error?.response?.data?.message ||
         'No fue posible eliminar el usuario.';
+
+      this.cdr.detectChanges();
     }
   }
+
+
+  // ==========================================
+  // Limpiar formulario
+  // ==========================================
 
   resetForm(): void {
 
