@@ -84,12 +84,14 @@
 
 
           <p class="full">
+
             <label>Estado</label>
 
             <select
               name="status"
               [(ngModel)]="form.status"
             >
+
               <option value="active">
                 Activo
               </option>
@@ -97,7 +99,9 @@
               <option value="inactive">
                 Inactivo
               </option>
+
             </select>
+
           </p>
 
 
@@ -144,9 +148,20 @@
     </div>
 
 
+    <!-- Muestra si la aplicación tiene conexión -->
+    <div
+      class="estado-conexion"
+      [class.offline]="!isOnline"
+    >
+      {{ isOnline ? '● Conectado' : '● Sin conexión' }}
+    </div>
+
+
     <div class="usuarios">
 
-      <h2>Usuarios registrados</h2>
+      <h2>
+        Usuarios registrados
+      </h2>
 
       <p *ngIf="loading">
         Cargando usuarios...
@@ -228,8 +243,8 @@
                 >
                   {{
                     user.status === 'active'
-                    ? 'Desactivar'
-                    : 'Activar'
+                      ? 'Desactivar'
+                      : 'Activar'
                   }}
                 </button>
 
