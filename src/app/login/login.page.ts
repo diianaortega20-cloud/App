@@ -1,27 +1,17 @@
-// Component permite crear el componente LoginPage.
+
 import { Component } from '@angular/core';
-
-// Router permite navegar entre páginas de Angular.
 import { Router } from '@angular/router';
-
-// IonContent es el contenido principal de una página Ionic.
 import { IonContent } from '@ionic/angular';
-
-// FormsModule permite utilizar formularios y ngModel.
 import { FormsModule } from '@angular/forms';
-
-// CommonModule permite utilizar funciones como *ngIf.
 import { CommonModule } from '@angular/common';
-
-// Axios permite realizar peticiones HTTP a la API PHP.
 import axios from 'axios';
 
+// Servicio para configurar la IP del servidor.
+import { ApiConfigService } from '../services/api_config.service';
 
 // Define la estructura de la respuesta de login.php.
 interface LoginResponse {
-
   success: boolean;
-
   message: string;
 
   user?: {
@@ -33,15 +23,10 @@ interface LoginResponse {
   };
 }
 
-
 @Component({
-
   selector: 'app-login',
-
   templateUrl: './login.page.html',
-
   styleUrls: ['./login.page.scss'],
-
   imports: [
     IonContent,
     FormsModule,
@@ -49,18 +34,17 @@ interface LoginResponse {
   ],
 })
 
-
-// CLASE PRINCIPAL DEL LOGIN
 export class LoginPage {
 
   // Datos escritos por el usuario.
   username = '';
   password = '';
 
+  // IP de la laptop donde se ejecuta XAMPP.
+  serverIp = '';
 
   // Indica si actualmente existe conexión.
   isOnline = navigator.onLine;
-
 
   // Variables para controlar las animaciones.
   usernameFocused = false;
@@ -74,40 +58,31 @@ export class LoginPage {
   hideLoginContent = false;
   loginSuccess = false;
 
-
   // Mensaje que se muestra cuando ocurre un error.
   errorMessage = '';
 
+  // Angular inyecta Router y el servicio de configuración.
+  constructor(
+    private router: Router,
+    private apiConfig: ApiConfigService
+  ) {
 
-  // Dirección de la API encargada del Login.
-  private readonly apiUrl =
-    'http://localhost/api_9b/login.php';
-
-
-  // Angular inyecta Router para permitir la navegación.
-  constructor(private router: Router) {
+    // Recupera la última IP guardada.
+    this.serverIp = this.apiConfig.getServerIp();
 
     // Detecta cuando se recupera la conexión.
     window.addEventListener('online', () => {
-
       this.isOnline = true;
-
       this.errorMessage = '';
-
     });
-
 
     // Detecta cuando se pierde la conexión.
     window.addEventListener('offline', () => {
-
       this.isOnline = false;
-
       this.errorMessage =
         'Sin conexión. Verifica tu conexión e inténtalo nuevamente.';
-
     });
   }
-
 
   // MÉTODO PRINCIPAL DEL LOGIN
   async login(): Promise<void> {
@@ -120,85 +95,90 @@ export class LoginPage {
       return;
     }
 
-
     // Limpia errores anteriores.
     this.errorMessage = '';
 
+    // VALIDACIÓN DE LA IP
 
-    // DETECCIÓN DE CONEXIÓN
+    const ip = this.serverIp.trim();
 
-    // Comprueba si el dispositivo está sin conexión.
-    if (!navigator.onLine) {
-
-      this.isOnline = false;
-
+    if (!ip) {
       this.errorMessage =
-        'Sin conexión. Necesitas conexión para iniciar sesión.';
-
+        'Ingresa la IP del servidor.';
       return;
     }
 
+    // Valida una dirección IPv4.
+    const ipv4Pattern =
+      /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/;
 
-    // Si existe conexión actualizamos la variable.
+    if (!ipv4Pattern.test(ip)) {
+      this.errorMessage =
+        'Ingresa una IP válida, por ejemplo 192.168.1.103.';
+      return;
+    }
+
+    // DETECCIÓN DE CONEXIÓN
+
+    if (!navigator.onLine) {
+      this.isOnline = false;
+      this.errorMessage =
+        'Sin conexión. Necesitas conexión para iniciar sesión.';
+      return;
+    }
+
     this.isOnline = true;
-
 
     // VALIDACIÓN DEL FORMULARIO
 
-    // Comprueba que exista usuario y contraseña.
     if (
       !this.username.trim() ||
       !this.password
     ) {
-
       this.errorMessage =
         'Ingresa tu usuario y contraseña.';
-
       return;
     }
-
 
     // Inicia las animaciones de autenticación.
     this.startAuthenticationAnimation();
 
-
     // PETICIÓN A LA API
-
     try {
+
+      // Guarda la IP para que también la utilicen los Tabs.
+      this.apiConfig.setServerIp(ip);
+
+      // Construye la URL usando la IP configurada.
+      const apiUrl =
+        this.apiConfig.getApiUrl('login.php');
 
       // Envía usuario y contraseña mediante POST.
       const response =
         await axios.post<LoginResponse>(
-
-          this.apiUrl,
-
+          apiUrl,
           {
             username: this.username.trim(),
             password: this.password,
           },
-
           {
             headers: {
-
               'Content-Type': 'application/json',
-
             },
+            timeout: 10000
           }
         );
-
 
       // Comprueba la respuesta de PHP.
       if (
         !response.data.success ||
         !response.data.user
       ) {
-
         throw new Error(
           response.data.message ||
           'No fue posible iniciar sesión.'
         );
       }
-
 
       // LOGIN CORRECTO
 
@@ -208,10 +188,8 @@ export class LoginPage {
         JSON.stringify(response.data.user)
       );
 
-
       // Finaliza la autenticación correctamente.
       this.finishAuthenticationAnimation(true);
-
 
     } catch (error: any) {
 
@@ -219,97 +197,63 @@ export class LoginPage {
       const apiMessage =
         error?.response?.data?.message;
 
-
-      // Si existe conexión pero la API no responde,
-      // mostramos un mensaje adecuado.
       if (!error?.response) {
-
         this.errorMessage =
-          'No fue posible conectar con el servidor.';
-
+          'No fue posible conectar con el servidor. Verifica la IP, el Wi-Fi y XAMPP.';
       } else {
-
         this.errorMessage =
           apiMessage ||
           error?.message ||
           'Error al iniciar sesión.';
-
       }
-
 
       // Finaliza la autenticación con error.
       this.finishAuthenticationAnimation(false);
     }
   }
 
-
   // INICIO DE LA ANIMACIÓN
   private startAuthenticationAnimation(): void {
 
     this.isLoginAnimating = true;
 
-
     setTimeout(() => {
-
       this.isLoginMoving = true;
-
     }, 300);
 
-
     setTimeout(() => {
-
       this.authenticating = true;
-
     }, 500);
   }
-
 
   // FINAL DE LA ANIMACIÓN
   private finishAuthenticationAnimation(
     success: boolean
   ): void {
 
-
     setTimeout(() => {
-
       this.authReturning = true;
-
       this.authenticating = false;
-
       this.isLoginMoving = false;
-
     }, 500);
 
-
     setTimeout(() => {
-
       this.isLoginAnimating = false;
-
       this.authReturning = false;
 
-
       if (success) {
-
         this.hideLoginContent = true;
-
         this.loginSuccess = true;
-
       }
-
     }, 800);
 
-
     // NAVEGACIÓN DESPUÉS DEL LOGIN
-
     if (success) {
-
       setTimeout(() => {
-
         this.router.navigateByUrl(
           '/tabs/tab1',
           { replaceUrl: true }
         );
-
       }, 1500);
     }
   }

@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 
 import axios from 'axios';
 
+import { ApiConfigService } from './api_config.service';
 
 // Importamos las dos interfaces que creamos.
 import {
@@ -16,11 +17,12 @@ import {
 
 // Esta clase concentra las operaciones de acceso a datos relacionadas con los usuarios.
 export class UserService {
-  
-  // URL del archivo PHP encargado del CRUD de usuarios.
-  private readonly apiUrl =
-    'http://localhost/api_9b/users.php';
+  constructor(private apiConfig: ApiConfigService) {}
 
+private get apiUrl(): string {
+  return this.apiConfig.getApiUrl('users.php');
+}
+  
   async getUsers(): Promise<User[]> {
 
 

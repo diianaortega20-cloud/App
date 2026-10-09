@@ -1,3 +1,4 @@
+
 <ion-content [fullscreen]="true" class="login-page">
 
   <!-- Marca -->
@@ -26,6 +27,36 @@
     </div>
 
     <div class="login_fields" *ngIf="!hideLoginContent">
+
+      <!-- Dirección IP del servidor -->
+      <div class="login_fields__user">
+
+        <div class="icon">
+          <span style="color: #afb1be; font-size: 12px;">
+            IP
+          </span>
+        </div>
+
+        <input
+          type="text"
+          inputmode="decimal"
+          placeholder="IP del servidor"
+          [(ngModel)]="serverIp"
+          autocomplete="off"
+          aria-label="Dirección IP del servidor"
+        />
+
+        <div
+          class="validation"
+          [class.visible]="serverIp.length > 0"
+        >
+          <img
+            src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/217233/tick.png"
+            alt="IP ingresada"
+          />
+        </div>
+
+      </div>
 
       <!-- Usuario -->
       <div class="login_fields__user">
@@ -106,7 +137,9 @@
           <a href="#">Forgotten password?</a>
         </div>
 
-        <p class="login-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+        <p class="login-error" *ngIf="errorMessage">
+          {{ errorMessage }}
+        </p>
 
       </div>
 
