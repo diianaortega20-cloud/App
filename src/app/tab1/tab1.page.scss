@@ -470,3 +470,8 @@ tbody tr:hover td {
     flex-direction: column;
   }
 }
+.api-error-backdrop { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.68); display: flex; align-items: center; justify-content: center; padding: 15px; }
+.api-error-modal { width: min(620px, 100%); max-height: 85vh; overflow: auto; padding: 20px; border-radius: 12px; background: white; color: #1e293b; }
+.api-error-modal h2 { margin-top: 0; }
+.api-error-modal pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #172235; color: white; padding: 12px; border-radius: 8px; font-size: 12px; }
+.api-error-modal button { padding: 10px 22px; border: 0; border-radius: 8px; background: #b86ae0; color: white; }

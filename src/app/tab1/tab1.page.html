@@ -1,4 +1,12 @@
 <ion-content [fullscreen]="true">
+  <!-- Modal de error HTTP: no expone contraseñas ni tokens. -->
+  <div class="api-error-backdrop" *ngIf="debug.error" role="presentation">
+    <section class="api-error-modal" role="dialog" aria-modal="true" aria-label="Detalle del error de API">
+      <h2>Error en petición API</h2>
+      <pre>{{ debug.errorJson }}</pre>
+      <button type="button" (click)="debug.closeError()">Cerrar</button>
+    </section>
+  </div>
 
   <div class="contenedor">
 

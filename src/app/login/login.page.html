@@ -124,6 +124,12 @@
 
       </div>
 
+      <!-- Diagnóstico dinámico de la última petición; nunca muestra contraseñas. -->
+      <div class="api-debug-login" aria-live="polite">
+        <strong>Diagnóstico API</strong>
+        <pre>{{ debug.last ? debug.lastJson : 'Sin solicitudes todavía' }}</pre>
+      </div>
+
       <!-- Botón -->
       <div class="login_fields__submit">
 

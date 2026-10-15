@@ -1,5 +1,5 @@
 
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -9,9 +9,14 @@ import axios from 'axios';
 // Servicio para configurar la IP del servidor.
 import { ApiConfigService } from '../services/api_config.service';
 
+// Servicio para registrar el diagnóstico de las peticiones.
+import { ApiDebugService } from '../services/api-debug.service';
+
 // Define la estructura de la respuesta de login.php.
 interface LoginResponse {
+
   success: boolean;
+
   message: string;
 
   user?: {
@@ -25,8 +30,11 @@ interface LoginResponse {
 
 @Component({
   selector: 'app-login',
+
   templateUrl: './login.page.html',
+
   styleUrls: ['./login.page.scss'],
+
   imports: [
     IonContent,
     FormsModule,
@@ -61,10 +69,18 @@ export class LoginPage {
   // Mensaje que se muestra cuando ocurre un error.
   errorMessage = '';
 
-  // Angular inyecta Router y el servicio de configuración.
+  // Guarda los temporizadores de las animaciones.
+  private animationTimers: ReturnType<typeof setTimeout>[] = [];
+
+  // Evita enviar dos peticiones simultáneamente.
+  private loginInProgress = false;
+
+  // Angular inyecta los servicios necesarios.
   constructor(
     private router: Router,
-    private apiConfig: ApiConfigService
+    private apiConfig: ApiConfigService,
+    public debug: ApiDebugService,
+    private cdr: ChangeDetectorRef
   ) {
 
     // Recupera la última IP guardada.
@@ -72,16 +88,29 @@ export class LoginPage {
 
     // Detecta cuando se recupera la conexión.
     window.addEventListener('online', () => {
+
       this.isOnline = true;
+
       this.errorMessage = '';
+
+      this.refreshView();
     });
 
     // Detecta cuando se pierde la conexión.
     window.addEventListener('offline', () => {
+
       this.isOnline = false;
+
       this.errorMessage =
         'Sin conexión. Verifica tu conexión e inténtalo nuevamente.';
+
+      this.refreshView();
     });
+  }
+
+  // Actualiza la interfaz de Angular.
+  private refreshView(): void {
+    this.cdr.detectChanges();
   }
 
   // MÉTODO PRINCIPAL DEL LOGIN
@@ -89,6 +118,7 @@ export class LoginPage {
 
     // Evita ejecutar varias veces el Login.
     if (
+      this.loginInProgress ||
       this.isLoginAnimating ||
       this.authenticating
     ) {
@@ -103,8 +133,10 @@ export class LoginPage {
     const ip = this.serverIp.trim();
 
     if (!ip) {
+
       this.errorMessage =
         'Ingresa la IP del servidor.';
+
       return;
     }
 
@@ -113,17 +145,22 @@ export class LoginPage {
       /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/;
 
     if (!ipv4Pattern.test(ip)) {
+
       this.errorMessage =
         'Ingresa una IP válida, por ejemplo 192.168.1.103.';
+
       return;
     }
 
     // DETECCIÓN DE CONEXIÓN
 
     if (!navigator.onLine) {
+
       this.isOnline = false;
+
       this.errorMessage =
         'Sin conexión. Necesitas conexión para iniciar sesión.';
+
       return;
     }
 
@@ -135,10 +172,15 @@ export class LoginPage {
       !this.username.trim() ||
       !this.password
     ) {
+
       this.errorMessage =
         'Ingresa tu usuario y contraseña.';
+
       return;
     }
+
+    // Bloquea nuevos intentos mientras se procesa el Login.
+    this.loginInProgress = true;
 
     // Inicia las animaciones de autenticación.
     this.startAuthenticationAnimation();
@@ -153,18 +195,28 @@ export class LoginPage {
       const apiUrl =
         this.apiConfig.getApiUrl('login.php');
 
+      // Datos que se enviarán a PHP.
+      const payload = {
+        username: this.username.trim(),
+        password: this.password
+      };
+
+      // Registra la petición para el diagnóstico.
+      // ApiDebugService oculta la contraseña al mostrarla.
+      this.debug.begin('POST', apiUrl, payload);
+
+      this.refreshView();
+
       // Envía usuario y contraseña mediante POST.
       const response =
         await axios.post<LoginResponse>(
           apiUrl,
-          {
-            username: this.username.trim(),
-            password: this.password,
-          },
+          payload,
           {
             headers: {
-              'Content-Type': 'application/json',
+              'Content-Type': 'application/json'
             },
+
             timeout: 10000
           }
         );
@@ -174,13 +226,25 @@ export class LoginPage {
         !response.data.success ||
         !response.data.user
       ) {
-        throw new Error(
+
+        // Conserva la respuesta HTTP para el diagnóstico.
+        const apiError: any = new Error(
           response.data.message ||
           'No fue posible iniciar sesión.'
         );
+
+        apiError.response = response;
+
+        throw apiError;
       }
 
       // LOGIN CORRECTO
+
+      // Registra el resultado exitoso.
+      this.debug.success(
+        response.status,
+        response.data
+      );
 
       // Guarda temporalmente los datos del usuario.
       localStorage.setItem(
@@ -188,42 +252,84 @@ export class LoginPage {
         JSON.stringify(response.data.user)
       );
 
+      this.refreshView();
+
       // Finaliza la autenticación correctamente.
       this.finishAuthenticationAnimation(true);
 
     } catch (error: any) {
+
+      // Registra el error para mostrarlo en el diagnóstico.
+      this.debug.failure(error);
 
       // Intenta obtener el mensaje enviado por PHP.
       const apiMessage =
         error?.response?.data?.message;
 
       if (!error?.response) {
+
         this.errorMessage =
           'No fue posible conectar con el servidor. Verifica la IP, el Wi-Fi y XAMPP.';
+
       } else {
+
         this.errorMessage =
           apiMessage ||
           error?.message ||
           'Error al iniciar sesión.';
       }
 
+      this.refreshView();
+
       // Finaliza la autenticación con error.
       this.finishAuthenticationAnimation(false);
     }
   }
 
+  // CANCELAR TEMPORIZADORES ANTERIORES
+  private clearAnimationTimers(): void {
+
+    this.animationTimers.forEach(timer => {
+      clearTimeout(timer);
+    });
+
+    this.animationTimers = [];
+  }
+
   // INICIO DE LA ANIMACIÓN
   private startAuthenticationAnimation(): void {
 
+    // Cancela animaciones anteriores.
+    this.clearAnimationTimers();
+
     this.isLoginAnimating = true;
+    this.isLoginMoving = false;
+    this.authenticating = false;
+    this.authReturning = false;
 
-    setTimeout(() => {
-      this.isLoginMoving = true;
-    }, 300);
+    this.refreshView();
 
-    setTimeout(() => {
-      this.authenticating = true;
-    }, 500);
+    // Mueve el formulario.
+    this.animationTimers.push(
+      setTimeout(() => {
+
+        this.isLoginMoving = true;
+
+        this.refreshView();
+
+      }, 300)
+    );
+
+    // Muestra el indicador de autenticación.
+    this.animationTimers.push(
+      setTimeout(() => {
+
+        this.authenticating = true;
+
+        this.refreshView();
+
+      }, 500)
+    );
   }
 
   // FINAL DE LA ANIMACIÓN
@@ -231,30 +337,61 @@ export class LoginPage {
     success: boolean
   ): void {
 
-    setTimeout(() => {
-      this.authReturning = true;
-      this.authenticating = false;
-      this.isLoginMoving = false;
-    }, 500);
+    // Evita que los temporizadores del inicio
+    // sigan modificando la interfaz.
+    this.clearAnimationTimers();
 
-    setTimeout(() => {
-      this.isLoginAnimating = false;
-      this.authReturning = false;
+    // Oculta el indicador de autenticación.
+    this.authReturning = true;
+    this.authenticating = false;
 
-      if (success) {
-        this.hideLoginContent = true;
-        this.loginSuccess = true;
-      }
-    }, 800);
+    // Regresa el formulario a su posición original.
+    this.isLoginMoving = false;
+
+    this.refreshView();
+
+    this.animationTimers.push(
+      setTimeout(() => {
+
+        // Elimina la inclinación del formulario.
+        this.isLoginAnimating = false;
+
+        this.authReturning = false;
+
+        if (success) {
+
+          // Muestra la confirmación del Login.
+          this.hideLoginContent = true;
+          this.loginSuccess = true;
+
+        } else {
+
+          // Si falla, mantiene visible el formulario.
+          this.hideLoginContent = false;
+          this.loginSuccess = false;
+
+          // Permite intentar iniciar sesión nuevamente.
+          this.loginInProgress = false;
+        }
+
+        this.refreshView();
+
+      }, 500)
+    );
 
     // NAVEGACIÓN DESPUÉS DEL LOGIN
     if (success) {
-      setTimeout(() => {
-        this.router.navigateByUrl(
-          '/tabs/tab1',
-          { replaceUrl: true }
-        );
-      }, 1500);
+
+      this.animationTimers.push(
+        setTimeout(() => {
+
+          this.router.navigateByUrl(
+            '/tabs/tab1',
+            { replaceUrl: true }
+          );
+
+        }, 1500)
+      );
     }
   }
 }

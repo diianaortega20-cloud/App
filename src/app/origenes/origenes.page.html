@@ -1,0 +1,17 @@
+<ion-content [fullscreen]="true">
+  <main class="origin-container">
+    <h1>Orígenes de datos</h1>
+    <p>Configuración de la API PHP guardada como JSON en este dispositivo.</p>
+    <label>Protocolo
+      <select [(ngModel)]="config.protocol"><option value="http">HTTP</option><option value="https">HTTPS</option></select>
+    </label>
+    <label>Dirección IPv4 <input [(ngModel)]="config.ip" placeholder="192.168.1.103" /></label>
+    <label>Puerto Apache <input type="number" [(ngModel)]="config.port" min="1" max="65535" /></label>
+    <label>Ruta API <input [value]="config.apiPath" disabled /></label>
+    <button type="button" (click)="save()">Guardar configuración</button>
+    <p aria-live="polite">{{ message }}</p>
+    <h2>JSON de configuración</h2><pre>{{ configJson }}</pre>
+    <h2>Última petición HTTP</h2><pre>{{ debug.lastJson || 'Aún no hay peticiones registradas' }}</pre>
+    <p class="note">El puerto es el de Apache (normalmente 80), no el puerto de MySQL. La configuración se guarda en localStorage, no en un archivo físico ni en la base de datos.</p>
+  </main>
+</ion-content>

@@ -16,6 +16,7 @@ import {
 
 // Servicio encargado de realizar las operaciones con la API.
 import { UserService } from '../services/user.service';
+import { ApiDebugService } from '../services/api-debug.service';
 
 @Component({
   selector: 'app-tab1',
@@ -61,7 +62,8 @@ export class Tab1Page implements OnInit {
   // Inyecta el servicio de usuarios y el detector de cambios.
   constructor(
     private userService: UserService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    public debug: ApiDebugService
   ) {}
 
   // Se ejecuta al iniciar Tab1.

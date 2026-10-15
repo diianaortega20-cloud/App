@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import axios from 'axios';
 
 import { ApiConfigService } from './api_config.service';
+import { ApiDebugService } from './api-debug.service';
 
 // Importamos las dos interfaces que creamos.
 import {
@@ -17,18 +18,35 @@ import {
 
 // Esta clase concentra las operaciones de acceso a datos relacionadas con los usuarios.
 export class UserService {
-  constructor(private apiConfig: ApiConfigService) {}
+  constructor(private apiConfig: ApiConfigService, private debug: ApiDebugService) {}
 
 private get apiUrl(): string {
   return this.apiConfig.getApiUrl('users.php');
 }
   
+  private async request(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: unknown): Promise<any> {
+    this.debug.begin(method, url, payload);
+    try {
+      const response = await axios.request({ method, url, data: payload, timeout: 10000 });
+      if (response.data?.success === false) {
+        const error: any = new Error(response.data?.message || 'La API informó un error.');
+        error.response = response;
+        throw error;
+      }
+      this.debug.success(response.status, response.data);
+      return response;
+    } catch (error) {
+      this.debug.failure(error);
+      throw error;
+    }
+  }
+
   async getUsers(): Promise<User[]> {
 
 
     // Realizamos una petición HTTP GET a users.php. await hace que esperemos la respuesta de la API
     const response =
-      await axios.get(this.apiUrl);
+      await this.request('GET', this.apiUrl);
 
     if (response.data.success) {
 
@@ -46,7 +64,7 @@ private get apiUrl(): string {
   ): Promise<any> {
 
 
-    const response = await axios.post(
+    const response = await this.request('POST',
 
       // Endpoint.
       this.apiUrl,
@@ -73,7 +91,7 @@ private get apiUrl(): string {
 
 
     // PUT se utiliza para actualizar la información de un usuario existente.
-    const response = await axios.put(
+    const response = await this.request('PUT',
 
       // Enviamos el ID como parámetro en la URL.
       `${this.apiUrl}?id=${form.id}`,
@@ -101,7 +119,7 @@ private get apiUrl(): string {
         ? 'inactive'
         : 'active';
 
-    const response = await axios.patch(
+    const response = await this.request('PATCH',
 
       `${this.apiUrl}?id=${user.id}`,
 
@@ -119,7 +137,7 @@ private get apiUrl(): string {
   ): Promise<any> {
 
 
-    const response = await axios.delete(
+    const response = await this.request('DELETE',
       `${this.apiUrl}?id=${id}`
     );
 
