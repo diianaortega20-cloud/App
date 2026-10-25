@@ -1,6 +1,12 @@
+/**
+ * Administra usuarios y mantiene una copia local.
+ * Sincroniza la consulta al recuperar conexión con la API.
+ */
+
 import {
   ChangeDetectorRef,
   Component,
+  OnDestroy,
   OnInit
 } from '@angular/core';
 
@@ -8,308 +14,424 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonContent } from '@ionic/angular';
 
-// Interfaces que definen la estructura de usuarios y del formulario.
 import {
   User,
   UserForm
 } from '../models/user.interface';
 
-// Servicio encargado de realizar las operaciones con la API.
 import { UserService } from '../services/user.service';
 import { ApiDebugService } from '../services/api-debug.service';
+import { ApiConfigService } from '../services/api_config.service';
+
+type ConnectionState =
+  | 'checking'
+  | 'online'
+  | 'offline'
+  | 'unavailable'
+  | 'denied'
+  | 'error';
+
+interface CachedUsers {
+  savedAt: string;
+  users: User[];
+}
 
 @Component({
   selector: 'app-tab1',
+  standalone: true,
   templateUrl: './tab1.page.html',
   styleUrls: ['./tab1.page.scss'],
-  standalone: true,
   imports: [
     CommonModule,
     FormsModule,
     IonContent
   ]
 })
-export class Tab1Page implements OnInit {
+export class Tab1Page implements OnInit, OnDestroy {
 
-  // Lista donde se guardan los usuarios obtenidos de la API.
   users: User[] = [];
+  form: UserForm = this.emptyForm();
 
-  // Datos vinculados al formulario de crear o editar usuario.
-  form: UserForm = {
-    id: null,
-    username: '',
-    email: '',
-    name: '',
-    password: '',
-    status: 'active'
-  };
-
-  // Indica si el formulario está editando un usuario.
   editing = false;
-
   loading = false;
+  saving = false;
 
-  // Indica si el navegador tiene conexión.
   isOnline = navigator.onLine;
+  connection: ConnectionState = 'checking';
 
-  // Nombre utilizado para guardar los usuarios en caché.
-  private readonly cacheKey = 'cached_users';
+  lastSync: string | null = null;
+  fromCache = false;
 
-  // Mensajes de éxito y error mostrados en la interfaz.
   message = '';
   errorMessage = '';
 
-  // Inyecta el servicio de usuarios y el detector de cambios.
+  private destroyed = false;
+  private active = false;
+
+  private retryTimer?: ReturnType<typeof setInterval>;
+
   constructor(
     private userService: UserService,
     private cdr: ChangeDetectorRef,
-    public debug: ApiDebugService
+    public debug: ApiDebugService,
+    private apiConfig: ApiConfigService
   ) {}
 
-  // Se ejecuta al iniciar Tab1.
-  ngOnInit(): void {
+  // Texto del estado actual.
+  get connectionText(): string {
+    const labels: Record<ConnectionState, string> = {
+      checking: 'Comprobando servidor…',
+      online: 'En línea · servidor disponible',
+      offline: 'Sin conexión de red',
+      unavailable: 'Servidor no disponible',
+      denied: 'Sesión o permisos no válidos',
+      error: 'Error al consultar la API'
+    };
 
-    // Obtiene el estado inicial de la conexión.
-    this.isOnline = navigator.onLine;
-
-    // Detecta cuando se recupera la conexión.
-    window.addEventListener('online', () => {
-
-      this.isOnline = true;
-
-      this.message =
-        'Conexión restablecida.';
-
-      this.errorMessage = '';
-
-      // Vuelve a consultar la API.
-      this.loadUsers();
-
-      this.cdr.detectChanges();
-    });
-
-    // Detecta cuando se pierde la conexión.
-    window.addEventListener('offline', () => {
-
-      this.isOnline = false;
-
-      this.message = '';
-
-      this.errorMessage =
-        'Sin conexión. Mostrando datos almacenados.';
-
-      // Recupera los últimos usuarios guardados.
-      this.loadCachedUsers();
-
-      this.cdr.detectChanges();
-    });
-
-    // Carga los usuarios al iniciar.
-    this.loadUsers();
+    return labels[this.connection];
   }
 
-
-  // Guarda la lista actual de usuarios en el almacenamiento local.
-  private saveUsersToCache(): void {
-
-    localStorage.setItem(
-      this.cacheKey,
-      JSON.stringify(this.users)
+  // Bloquea modificaciones durante carga o desconexión.
+  get canWrite(): boolean {
+    return (
+      this.connection === 'online' &&
+      !this.loading &&
+      !this.saving
     );
   }
 
+  // Identifica la copia por servidor y usuario.
+  private get cacheKey(): string {
+    const user = JSON.parse(
+      localStorage.getItem('user') || 'null'
+    );
 
-  // Recupera los usuarios almacenados en caché.
-  private loadCachedUsers(): void {
+    if (!user || !Number.isInteger(user.id)) {
+      throw new Error(
+        'Inicia sesión para consultar los usuarios.'
+      );
+    }
 
-    const cachedUsers =
-      localStorage.getItem(this.cacheKey);
+    const apiUrl = this.apiConfig.getApiUrl('users.php');
 
-    if (cachedUsers) {
+    return `cached_users_v2:${apiUrl}:${user.id}`;
+  }
 
-      try {
+  // Registra eventos una sola vez.
+  ngOnInit(): void {
+    window.addEventListener('online', this.onOnline);
+    window.addEventListener('offline', this.onOffline);
 
-        this.users =
-          JSON.parse(cachedUsers) as User[];
-
-      } catch {
-
-        // Si los datos almacenados están dañados, elimina el caché.
-        localStorage.removeItem(
-          this.cacheKey
-        );
-
-        this.users = [];
-
-        this.errorMessage =
-          'No fue posible recuperar los datos almacenados.';
+    // Detecta la recuperación de Apache sin cambio de red.
+    this.retryTimer = setInterval(() => {
+      if (
+        this.active &&
+        !this.saving &&
+        navigator.onLine &&
+        this.connection === 'unavailable'
+      ) {
+        void this.loadUsers();
       }
+    }, 15000);
+  }
 
-    } else {
+  // Consulta al entrar a la pantalla.
+  ionViewWillEnter(): void {
+    this.active = true;
+    void this.loadUsers();
+  }
 
-      this.users = [];
+  ionViewWillLeave(): void {
+    this.active = false;
+  }
 
-      this.errorMessage =
-        'Sin conexión y no hay datos almacenados.';
+  // Recupera la consulta cuando vuelve la red.
+  private readonly onOnline = (): void => {
+    this.isOnline = true;
+
+    if (this.active) {
+      void this.loadUsers();
+    }
+
+    this.refreshView();
+  };
+
+  // Conserva el formulario y muestra la copia local.
+  private readonly onOffline = (): void => {
+    this.isOnline = false;
+
+    // No sustituye un rechazo de permisos por acceso al caché.
+    if (this.connection !== 'denied') {
+      this.connection = 'offline';
+
+      if (!this.loading) {
+        this.loadCachedUsers();
+      }
+    }
+
+    this.refreshView();
+  };
+
+  private refreshView(): void {
+    if (!this.destroyed) {
+      this.cdr.detectChanges();
     }
   }
 
+  // Comprueba los datos antes de usarlos.
+  private validUsers(value: unknown): value is User[] {
+    return (
+      Array.isArray(value) &&
+      value.every(user =>
+        user &&
+        Number.isInteger(user.id) &&
+        typeof user.username === 'string' &&
+        typeof user.name === 'string' &&
+        typeof user.email === 'string' &&
+        (
+          user.status === 'active' ||
+          user.status === 'inactive'
+        )
+      )
+    );
+  }
 
-  // GET: obtiene la lista de usuarios mediante UserService.
-  async loadUsers(): Promise<void> {
-
-    // Activa el estado de carga y limpia errores anteriores.
-    this.loading = true;
-    this.errorMessage = '';
+  // Lee la última copia del usuario y servidor actuales.
+  private loadCachedUsers(): void {
+    this.users = [];
+    this.lastSync = null;
+    this.fromCache = false;
 
     try {
+      const raw = localStorage.getItem(this.cacheKey);
 
-      // Si no hay conexión, utiliza directamente el caché.
-      if (!navigator.onLine) {
-
-        this.isOnline = false;
-
-        this.loadCachedUsers();
-
-        // Si existe caché, muestra este mensaje.
-        if (this.users.length > 0) {
-
-          this.errorMessage =
-            'Sin conexión. Mostrando datos almacenados.';
-        }
-
+      if (!raw) {
+        this.errorMessage =
+          'No hay una copia local para este usuario y servidor.';
         return;
       }
 
-      // Indica que existe conexión.
-      this.isOnline = true;
+      const cached: CachedUsers = JSON.parse(raw);
 
-      // Espera los usuarios obtenidos por el servicio.
-      this.users =
-        await this.userService.getUsers();
+      if (
+        !this.validUsers(cached.users) ||
+        typeof cached.savedAt !== 'string' ||
+        !Number.isFinite(Date.parse(cached.savedAt))
+      ) {
+        throw new Error(
+          'La copia local no es válida. Sincroniza al recuperar conexión.'
+        );
+      }
 
-      // Guarda una copia de los usuarios para uso offline.
-      this.saveUsersToCache();
+      this.users = cached.users;
+      this.lastSync = cached.savedAt;
+      this.fromCache = true;
 
-    } catch (error: any) {
+      this.errorMessage =
+        'Mostrando la última copia local. Puede estar desactualizada.';
 
-      // La red puede existir aunque PHP o Apache no respondan.
-      // En ese caso también intentamos recuperar el caché.
-      this.loadCachedUsers();
+    } catch (error) {
+      this.errorMessage = error instanceof Error
+        ? error.message
+        : 'No fue posible recuperar la copia local.';
+    }
+  }
 
-      if (this.users.length > 0) {
+  // Elimina la copia cuando la API rechaza el acceso.
+  private denyAccess(status: number): void {
+    this.connection = 'denied';
+    this.users = [];
+    this.lastSync = null;
+    this.fromCache = false;
+
+    try {
+      localStorage.removeItem(this.cacheKey);
+    } catch {
+      // El almacenamiento puede no estar disponible.
+    }
+
+    if (status === 401) {
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_expires_at');
+    }
+
+    this.errorMessage = status === 401
+      ? 'La sesión no es válida. Vuelve a iniciar sesión.'
+      : 'No tienes permiso para consultar o modificar usuarios.';
+  }
+
+  // Consulta la API y actualiza la copia local.
+  async loadUsers(): Promise<void> {
+    if (this.loading || this.destroyed) {
+      return;
+    }
+
+    const accessWasDenied = this.connection === 'denied';
+
+    this.loading = true;
+    this.errorMessage = '';
+    this.isOnline = navigator.onLine;
+
+    if (!this.isOnline && accessWasDenied) {
+      this.loading = false;
+      this.errorMessage =
+        'Necesitas recuperar conexión e iniciar una sesión válida.';
+      this.refreshView();
+      return;
+    }
+
+    this.connection = this.isOnline
+      ? 'checking'
+      : 'offline';
+
+    this.refreshView();
+
+    try {
+      if (!this.isOnline) {
+        this.loadCachedUsers();
+        return;
+      }
+
+      // Conserva la identidad de esta consulta.
+      const requestedKey = this.cacheKey;
+
+      const users = await this.userService.getUsers();
+
+      if (this.destroyed) {
+        return;
+      }
+
+      // Descarta respuestas de otra configuración o cuenta.
+      if (requestedKey !== this.cacheKey) {
+        this.users = [];
+        this.fromCache = false;
+        this.lastSync = null;
+        this.connection = 'error';
+        this.errorMessage =
+          'Cambió el usuario o servidor. Pulsa Sincronizar ahora.';
+        return;
+      }
+
+      if (!navigator.onLine) {
+        this.isOnline = false;
+        this.connection = 'offline';
+        this.loadCachedUsers();
+        return;
+      }
+
+      if (!this.validUsers(users)) {
+        throw new Error(
+          'La API devolvió una lista de usuarios inválida.'
+        );
+      }
+
+      this.users = users;
+      this.fromCache = false;
+      this.connection = 'online';
+
+      const savedAt = new Date().toISOString();
+
+      try {
+        const cache: CachedUsers = {
+          savedAt,
+          users
+        };
+
+        localStorage.setItem(
+          requestedKey,
+          JSON.stringify(cache)
+        );
+
+        this.lastSync = savedAt;
+
+      } catch {
+        this.lastSync = null;
 
         this.errorMessage =
-          'No fue posible conectar con el servidor. Mostrando datos almacenados.';
+          'Consulta correcta, pero no se pudo guardar la copia local.';
+      }
+
+    } catch (error: any) {
+      if (this.destroyed) {
+        return;
+      }
+
+      const status = error?.response?.status;
+
+      if (status === 401 || status === 403) {
+        this.denyAccess(status);
+
+      } else if (
+        (!status && error?.isAxiosError) ||
+        status >= 500
+      ) {
+        this.isOnline = navigator.onLine;
+
+        this.connection = this.isOnline
+          ? 'unavailable'
+          : 'offline';
+
+        this.loadCachedUsers();
 
       } else {
+        this.connection = 'error';
+        this.users = [];
+        this.fromCache = false;
+        this.lastSync = null;
 
         this.errorMessage =
           error?.response?.data?.message ||
-          'No fue posible cargar los usuarios.';
+          error?.message ||
+          'No fue posible consultar la API.';
       }
 
     } finally {
-
-      // Finaliza la carga aunque la petición tenga éxito o error.
       this.loading = false;
-
-      // Fuerza a Angular a reflejar los cambios hechos tras Axios.
-      this.cdr.detectChanges();
+      this.refreshView();
     }
   }
 
-
-  // POST o PUT: crea o actualiza según el estado editing.
+  // POST o PUT según el modo del formulario.
   async saveUser(): Promise<void> {
+    if (!this.canWrite) {
+      return;
+    }
 
-    // Limpia mensajes anteriores.
     this.message = '';
     this.errorMessage = '';
 
-    // No permite modificar información sin conexión.
-    if (!navigator.onLine) {
-
-      this.isOnline = false;
-
-      this.errorMessage =
-        'Necesitas conexión para guardar cambios.';
-
-      return;
-    }
-
-    // Comprueba que los campos obligatorios tengan información.
     if (
       !this.form.username.trim() ||
-      !this.form.email.trim() ||
-      !this.form.name.trim()
+      !this.form.name.trim() ||
+      !this.form.email.trim()
     ) {
-
       this.errorMessage =
         'Usuario, nombre y correo son obligatorios.';
-
       return;
     }
 
-    // Exige contraseña solamente cuando se crea un usuario.
-    if (
-      !this.editing &&
-      !this.form.password
-    ) {
-
+    if (!this.editing && !this.form.password) {
       this.errorMessage =
         'La contraseña es obligatoria para usuarios nuevos.';
-
       return;
     }
 
-    try {
+    const data = { ...this.form };
+    const updating = this.editing && data.id !== null;
 
-      // Si estamos editando y existe ID, realiza un PUT.
-      if (
-        this.editing &&
-        this.form.id !== null
-      ) {
-
-        const response =
-          await this.userService.updateUser(
-            this.form
-          );
-
-        this.message =
-          response.message;
-
-      } else {
-
-        // Si no estamos editando, realiza un POST.
-        const response =
-          await this.userService.createUser(
-            this.form
-          );
-
-        this.message =
-          response.message;
-      }
-
-      // Limpia el formulario después de guardar.
-      this.resetForm();
-
-      // Actualiza la tabla y también el caché.
-      await this.loadUsers();
-
-    } catch (error: any) {
-
-      this.errorMessage =
-        error?.response?.data?.message ||
-        'No fue posible guardar el usuario. Verifica la conexión con el servidor.';
-
-      this.cdr.detectChanges();
-    }
+    await this.mutate(
+      () => updating
+        ? this.userService.updateUser(data)
+        : this.userService.createUser(data),
+      true
+    );
   }
 
-
-  // Coloca un usuario existente en el formulario para editarlo.
+  // Coloca los datos en el formulario.
   editUser(user: User): void {
+    if (!this.canWrite) {
+      return;
+    }
 
     this.editing = true;
 
@@ -321,123 +443,105 @@ export class Tab1Page implements OnInit {
       password: '',
       status: user.status
     };
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
   }
 
-
-  // PATCH: cambia únicamente el estado activo/inactivo.
-  async toggleStatus(
-    user: User
-  ): Promise<void> {
-
-    this.message = '';
-    this.errorMessage = '';
-
-    // No permite cambiar el estado sin conexión.
-    if (!navigator.onLine) {
-
-      this.isOnline = false;
-
-      this.errorMessage =
-        'Necesitas conexión para cambiar el estado.';
-
+  // PATCH: cambia el estado.
+  async toggleStatus(user: User): Promise<void> {
+    if (!this.canWrite) {
       return;
     }
 
-    try {
-
-      const response =
-        await this.userService.updateStatus(
-          user
-        );
-
-      this.message =
-        response.message;
-
-      // Actualiza la tabla y el caché.
-      await this.loadUsers();
-
-    } catch (error: any) {
-
-      this.errorMessage =
-        error?.response?.data?.message ||
-        'No fue posible cambiar el estado. Verifica la conexión con el servidor.';
-
-      this.cdr.detectChanges();
-    }
-  }
-
-
-  // DELETE: elimina un usuario mediante su ID.
-  async deleteUser(
-    user: User
-  ): Promise<void> {
-
-    this.message = '';
-    this.errorMessage = '';
-
-    // No permite eliminar usuarios sin conexión.
-    if (!navigator.onLine) {
-
-      this.isOnline = false;
-
-      this.errorMessage =
-        'Necesitas conexión para eliminar usuarios.';
-
-      return;
-    }
-
-    // Impide eliminar al administrador principal con ID 1.
-    if (user.id === 1) {
-
-      this.errorMessage =
-        'No elimines el administrador principal.';
-
-      return;
-    }
-
-    const confirmed = confirm(
-      `¿Eliminar al usuario ${user.username}?`
+    await this.mutate(
+      () => this.userService.updateStatus(user)
     );
+  }
 
-    if (!confirmed) {
+  // DELETE: solicita confirmación.
+  async deleteUser(user: User): Promise<void> {
+    if (!this.canWrite || user.id === 1) {
       return;
     }
 
-    try {
+    if (!confirm(`¿Eliminar al usuario ${user.username}?`)) {
+      return;
+    }
 
-      const response =
-        await this.userService.deleteUser(
-          user.id
-        );
+    await this.mutate(
+      () => this.userService.deleteUser(user.id)
+    );
+  }
+
+  // Controla carga y evita envíos repetidos.
+  private async mutate(
+    operation: () => Promise<any>,
+    reset = false
+  ): Promise<void> {
+    if (!navigator.onLine) {
+      this.onOffline();
+      return;
+    }
+
+    this.saving = true;
+    this.message = '';
+    this.errorMessage = '';
+
+    this.refreshView();
+
+    try {
+      const result = await operation();
+
+      if (this.destroyed) {
+        return;
+      }
 
       this.message =
-        response.message;
+        result.message || 'Operación realizada.';
 
-      // Actualiza la tabla y el caché.
+      if (reset) {
+        this.resetForm();
+      }
+
+      // Actualiza tabla y copia después de modificar.
       await this.loadUsers();
 
     } catch (error: any) {
+      if (this.destroyed) {
+        return;
+      }
 
-      this.errorMessage =
-        error?.response?.data?.message ||
-        'No fue posible eliminar el usuario. Verifica la conexión con el servidor.';
+      const status = error?.response?.status;
 
-      this.cdr.detectChanges();
+      if (status === 401 || status === 403) {
+        this.denyAccess(status);
+
+      } else {
+        if (!status || status >= 500) {
+          this.isOnline = navigator.onLine;
+
+          this.connection = this.isOnline
+            ? 'unavailable'
+            : 'offline';
+        }
+
+        this.errorMessage =
+          error?.response?.data?.message ||
+          'No se confirmó la modificación. Sincroniza y revisa la lista antes de reenviarla.';
+      }
+
+    } finally {
+      this.saving = false;
+      this.refreshView();
     }
   }
 
-
-  // Regresa el formulario a su estado inicial.
+  // Limpia únicamente el formulario.
   resetForm(): void {
-
     this.editing = false;
+    this.form = this.emptyForm();
+  }
 
-    this.form = {
+  private emptyForm(): UserForm {
+    return {
       id: null,
       username: '',
       email: '',
@@ -445,5 +549,17 @@ export class Tab1Page implements OnInit {
       password: '',
       status: 'active'
     };
+  }
+
+  // Libera eventos y reintentos.
+  ngOnDestroy(): void {
+    this.destroyed = true;
+
+    window.removeEventListener('online', this.onOnline);
+    window.removeEventListener('offline', this.onOffline);
+
+    if (this.retryTimer) {
+      clearInterval(this.retryTimer);
+    }
   }
 }

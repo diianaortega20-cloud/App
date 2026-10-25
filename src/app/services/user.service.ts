@@ -1,75 +1,102 @@
-import { Injectable } from '@angular/core';
+/**
+ * Realiza las operaciones de usuarios mediante Axios.
+ * Envía el token de sesión y registra el diagnóstico.
+ */
 
+import { Injectable } from '@angular/core';
 import axios from 'axios';
 
 import { ApiConfigService } from './api_config.service';
 import { ApiDebugService } from './api-debug.service';
 
-// Importamos las dos interfaces que creamos.
 import {
   User,
   UserForm
 } from '../models/user.interface';
 
 @Injectable({
-
   providedIn: 'root'
 })
-
-// Esta clase concentra las operaciones de acceso a datos relacionadas con los usuarios.
 export class UserService {
-  constructor(private apiConfig: ApiConfigService, private debug: ApiDebugService) {}
 
-private get apiUrl(): string {
-  return this.apiConfig.getApiUrl('users.php');
-}
-  
-  private async request(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: unknown): Promise<any> {
+  constructor(
+    private apiConfig: ApiConfigService,
+    private debug: ApiDebugService
+  ) {}
+
+  // Construye la dirección usando la configuración actual.
+  private get apiUrl(): string {
+    return this.apiConfig.getApiUrl('users.php');
+  }
+
+  // Centraliza las solicitudes y sus errores.
+  private async request(
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    url: string,
+    payload?: unknown
+  ): Promise<any> {
+
     this.debug.begin(method, url, payload);
+
     try {
-      const response = await axios.request({ method, url, data: payload, timeout: 10000 });
-      if (response.data?.success === false) {
-        const error: any = new Error(response.data?.message || 'La API informó un error.');
-        error.response = response;
+      const token = sessionStorage.getItem('auth_token');
+
+      const response = await axios.request({
+        method,
+        url,
+        data: payload,
+        timeout: 10000,
+        headers: token
+          ? { Authorization: `Bearer ${token}` }
+          : {}
+      });
+
+      if (response.data?.success !== true) {
+        const error = Object.assign(
+          new Error(
+            response.data?.message ||
+            'La API no confirmó la operación.'
+          ),
+          { response }
+        );
+
         throw error;
       }
-      this.debug.success(response.status, response.data);
+
+      this.debug.success(
+        response.status,
+        response.data
+      );
+
       return response;
+
     } catch (error) {
       this.debug.failure(error);
       throw error;
     }
   }
 
+  // GET: consulta los usuarios.
   async getUsers(): Promise<User[]> {
+    const response = await this.request(
+      'GET',
+      this.apiUrl
+    );
 
-
-    // Realizamos una petición HTTP GET a users.php. await hace que esperemos la respuesta de la API
-    const response =
-      await this.request('GET', this.apiUrl);
-
-    if (response.data.success) {
-
-      return response.data.users;
+    if (!Array.isArray(response.data.users)) {
+      throw new Error(
+        'La API no devolvió una lista de usuarios válida.'
+      );
     }
 
-
-    // Si la API no indicó éxito,regresamos una lista vacía.
-    return [];
+    return response.data.users;
   }
-  
-  // Recibe un objeto de tipo UserForm.
-  async createUser(
-    form: UserForm
-  ): Promise<any> {
 
-
-    const response = await this.request('POST',
-
-      // Endpoint.
+  // POST: crea un usuario.
+  async createUser(form: UserForm): Promise<any> {
+    const response = await this.request(
+      'POST',
       this.apiUrl,
-
-      // Datos que enviaremos a PHP en el cuerpo
       {
         username: form.username,
         email: form.email,
@@ -79,24 +106,14 @@ private get apiUrl(): string {
       }
     );
 
-
-    // Regresamos a Tab1Page la respuesta que users.php nos haya enviado.
     return response.data;
   }
 
-  // PUT actualizar usuario. Recibe nuevamente UserForm porque para editar utilizamos los datos del formulario.
-  async updateUser(
-    form: UserForm
-  ): Promise<any> {
-
-
-    // PUT se utiliza para actualizar la información de un usuario existente.
-    const response = await this.request('PUT',
-
-      // Enviamos el ID como parámetro en la URL.
+  // PUT: actualiza un usuario.
+  async updateUser(form: UserForm): Promise<any> {
+    const response = await this.request(
+      'PUT',
       `${this.apiUrl}?id=${form.id}`,
-
-      // Nuevos datos del usuario.
       {
         username: form.username,
         email: form.email,
@@ -109,40 +126,28 @@ private get apiUrl(): string {
     return response.data;
   }
 
-  // PATCH Cambiar estado. Este método recibe un User
-  async updateStatus(
-    user: User
-  ): Promise<any> {
+  // PATCH: cambia el estado.
+  async updateStatus(user: User): Promise<any> {
+    const status = user.status === 'active'
+      ? 'inactive'
+      : 'active';
 
-    const newStatus: 'active' | 'inactive' =
-      user.status === 'active'
-        ? 'inactive'
-        : 'active';
-
-    const response = await this.request('PATCH',
-
+    const response = await this.request(
+      'PATCH',
       `${this.apiUrl}?id=${user.id}`,
-
-      // Solamente enviamos el dato que queremos cambiar.
-      {
-        status: newStatus
-      }
+      { status }
     );
 
     return response.data;
   }
-  
-  async deleteUser(
-    id: number
-  ): Promise<any> {
 
-
-    const response = await this.request('DELETE',
+  // DELETE: elimina un usuario.
+  async deleteUser(id: number): Promise<any> {
+    const response = await this.request(
+      'DELETE',
       `${this.apiUrl}?id=${id}`
     );
 
-
-    // Regresamos la respuesta enviada por PHP.
     return response.data;
   }
 }

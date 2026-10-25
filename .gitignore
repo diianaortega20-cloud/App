@@ -33,3 +33,5 @@ npm-debug.log*
 
 # Stray Gradle cache (native build artifacts live under android/)
 /.gradle
+
+/android/.idea/

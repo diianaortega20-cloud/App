@@ -1,32 +1,105 @@
+<!-- Muestra el CRUD y el estado de la copia local de usuarios. -->
+
 <ion-content [fullscreen]="true">
-  <!-- Modal de error HTTP: no expone contraseñas ni tokens. -->
-  <div class="api-error-backdrop" *ngIf="debug.error" role="presentation">
-    <section class="api-error-modal" role="dialog" aria-modal="true" aria-label="Detalle del error de API">
+
+  <!-- Diagnóstico de errores de la API. -->
+  <div
+    class="api-error-backdrop"
+    *ngIf="debug.error"
+  >
+    <section
+      class="api-error-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalle del error de API"
+    >
       <h2>Error en petición API</h2>
+
       <pre>{{ debug.errorJson }}</pre>
-      <button type="button" (click)="debug.closeError()">Cerrar</button>
+
+      <button
+        type="button"
+        (click)="debug.closeError()"
+      >
+        Cerrar
+      </button>
     </section>
   </div>
 
   <div class="contenedor">
 
     <h1 class="logo">
-      <span class="nombre-empresa">CRUD</span>
-      Usuarios
+      Administración de usuarios
     </h1>
+
+    <!-- Estado de conexión y sincronización. -->
+    <section
+      class="sync-panel"
+      aria-live="polite"
+    >
+      <div class="sync-header">
+        <strong
+          [class.offline]="connection !== 'online'"
+        >
+          {{ connectionText }}
+        </strong>
+
+        <button
+          type="button"
+          class="boton-cancelar"
+          (click)="loadUsers()"
+          [disabled]="loading || saving || !isOnline"
+        >
+          {{ loading ? 'Sincronizando…' : 'Sincronizar ahora' }}
+        </button>
+      </div>
+
+      <p>
+        Origen:
+        {{
+          fromCache
+            ? 'Copia local'
+            : (
+                connection === 'online'
+                  ? 'Consulta remota'
+                  : 'Pendiente de consulta'
+              )
+        }}
+      </p>
+
+      <p>
+        Última copia guardada:
+        {{
+          lastSync
+            ? (lastSync | date:'dd/MM/yyyy HH:mm:ss')
+            : 'Sin copia guardada'
+        }}
+      </p>
+
+      <p class="sync-help">
+        Sin conexión puedes consultar la última copia.
+        Las modificaciones requieren acceso al servidor.
+      </p>
+
+      <p *ngIf="saving">
+        Enviando modificación…
+      </p>
+    </section>
 
     <div class="wrapper">
 
       <div class="info-empresa">
-
-        <h3>Administración de Usuarios</h3>
+        <h3>Administración de usuarios</h3>
 
         <p>
           Crea, edita y administra los usuarios del sistema.
         </p>
 
+        <p class="sync-help">
+          La copia local se actualiza después de cada consulta
+          exitosa al servidor.
+        </p>
       </div>
-
 
       <div class="contacto">
 
@@ -38,246 +111,216 @@
           class="formulario"
           (ngSubmit)="saveUser()"
         >
-
           <p>
-            <label>Usuario</label>
+            <label for="username">Usuario</label>
 
             <input
+              id="username"
               type="text"
               name="username"
               [(ngModel)]="form.username"
+              [disabled]="saving"
+              maxlength="50"
               required
             >
           </p>
 
-
           <p>
-            <label>Nombre</label>
+            <label for="name">Nombre</label>
 
             <input
+              id="name"
               type="text"
               name="name"
               [(ngModel)]="form.name"
+              [disabled]="saving"
+              maxlength="100"
               required
             >
           </p>
 
-
           <p>
-            <label>Correo</label>
+            <label for="email">Correo</label>
 
             <input
+              id="email"
               type="email"
               name="email"
               [(ngModel)]="form.email"
+              [disabled]="saving"
+              maxlength="120"
               required
             >
           </p>
 
-
           <p>
-            <label>
+            <label for="password">
               Contraseña
-              <span *ngIf="editing">
-                (opcional)
-              </span>
+              <span *ngIf="editing">(opcional)</span>
             </label>
 
             <input
+              id="password"
               type="password"
               name="password"
               [(ngModel)]="form.password"
+              [disabled]="saving"
+              autocomplete="new-password"
             >
           </p>
-
 
           <p class="full">
-
-            <label>Estado</label>
+            <label for="status">Estado</label>
 
             <select
+              id="status"
               name="status"
               [(ngModel)]="form.status"
+              [disabled]="saving"
             >
-
-              <option value="active">
-                Activo
-              </option>
-
-              <option value="inactive">
-                Inactivo
-              </option>
-
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
             </select>
-
           </p>
 
-
           <p class="full botones-form">
-
             <button
               type="submit"
               class="boton-enviar"
+              [disabled]="!canWrite"
             >
-              {{ editing ? 'Actualizar usuario' : 'Crear usuario' }}
+              {{
+                saving
+                  ? 'Enviando…'
+                  : (
+                      editing
+                        ? 'Actualizar usuario'
+                        : 'Crear usuario'
+                    )
+              }}
             </button>
 
             <button
               *ngIf="editing"
               type="button"
               class="boton-cancelar"
+              [disabled]="saving"
               (click)="resetForm()"
             >
               Cancelar
             </button>
-
           </p>
-
         </form>
-
 
         <div
           *ngIf="message"
           class="mensaje success"
+          role="status"
         >
           {{ message }}
         </div>
 
-
         <div
           *ngIf="errorMessage"
           class="mensaje error"
+          role="alert"
         >
           {{ errorMessage }}
         </div>
 
       </div>
-
     </div>
 
-
-    <!-- Muestra si la aplicación tiene conexión -->
-    <div
-      class="estado-conexion"
-      [class.offline]="!isOnline"
-    >
-      {{ isOnline ? '● Conectado' : '● Sin conexión' }}
-    </div>
-
-
+    <!-- Lista remota o copia almacenada. -->
     <div class="usuarios">
 
-      <h2>
-        Usuarios registrados
-      </h2>
+      <h2>Usuarios registrados</h2>
 
       <p *ngIf="loading">
-        Cargando usuarios...
+        Consultando y sincronizando usuarios…
       </p>
 
-
       <div class="tabla-container">
-
-        <table *ngIf="!loading">
+        <table [attr.aria-busy]="loading">
 
           <thead>
-
             <tr>
-
               <th>ID</th>
-
               <th>Usuario</th>
-
               <th>Nombre</th>
-
               <th>Correo</th>
-
               <th>Estado</th>
-
               <th>Acciones</th>
-
             </tr>
-
           </thead>
 
-
           <tbody>
+            <tr *ngIf="!loading && users.length === 0">
+              <td colspan="6">
+                No hay usuarios para mostrar.
+              </td>
+            </tr>
 
             <tr *ngFor="let user of users">
+              <td>{{ user.id }}</td>
+              <td>{{ user.username }}</td>
+              <td>{{ user.name }}</td>
+              <td>{{ user.email }}</td>
 
               <td>
-                {{ user.id }}
-              </td>
-
-              <td>
-                {{ user.username }}
-              </td>
-
-              <td>
-                {{ user.name }}
-              </td>
-
-              <td>
-                {{ user.email }}
-              </td>
-
-              <td>
-
                 <span
                   class="estado"
                   [class.activo]="user.status === 'active'"
                   [class.inactivo]="user.status === 'inactive'"
                 >
-                  {{ user.status }}
-                </span>
-
-              </td>
-
-              <td class="acciones">
-
-                <button
-                  type="button"
-                  class="editar"
-                  (click)="editUser(user)"
-                >
-                  Editar
-                </button>
-
-
-                <button
-                  type="button"
-                  class="estado-btn"
-                  (click)="toggleStatus(user)"
-                >
                   {{
                     user.status === 'active'
-                      ? 'Desactivar'
-                      : 'Activar'
+                      ? 'Activo'
+                      : 'Inactivo'
                   }}
-                </button>
-
-
-                <button
-                  type="button"
-                  class="eliminar"
-                  [disabled]="user.id === 1"
-                  (click)="deleteUser(user)"
-                >
-                  Eliminar
-                </button>
-
+                </span>
               </td>
 
-            </tr>
+              <td>
+                <div class="acciones">
+                  <button
+                    type="button"
+                    class="editar"
+                    [disabled]="!canWrite"
+                    (click)="editUser(user)"
+                  >
+                    Editar
+                  </button>
 
+                  <button
+                    type="button"
+                    class="estado-btn"
+                    [disabled]="!canWrite"
+                    (click)="toggleStatus(user)"
+                  >
+                    {{
+                      user.status === 'active'
+                        ? 'Desactivar'
+                        : 'Activar'
+                    }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="eliminar"
+                    [disabled]="user.id === 1 || !canWrite"
+                    (click)="deleteUser(user)"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </td>
+            </tr>
           </tbody>
 
         </table>
-
       </div>
-
     </div>
 
   </div>
-
 </ion-content>

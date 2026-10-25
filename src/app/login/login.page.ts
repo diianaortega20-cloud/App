@@ -1,23 +1,29 @@
+/**
+ * Inicia sesión y guarda el token temporal.
+ * Conserva las animaciones de la pantalla de acceso.
+ */
 
-import { Component, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  ChangeDetectorRef,
+  OnDestroy
+} from '@angular/core';
+
 import { Router } from '@angular/router';
 import { IonContent } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import axios from 'axios';
 
-// Servicio para configurar la IP del servidor.
 import { ApiConfigService } from '../services/api_config.service';
-
-// Servicio para registrar el diagnóstico de las peticiones.
 import { ApiDebugService } from '../services/api-debug.service';
 
-// Define la estructura de la respuesta de login.php.
+// Respuesta del login actualizado.
 interface LoginResponse {
-
   success: boolean;
-
   message: string;
+  token: string;
+  expires_at: string;
 
   user?: {
     id: number;
@@ -25,36 +31,31 @@ interface LoginResponse {
     email: string;
     name: string;
     status: 'active' | 'inactive';
+    role: 'admin' | 'employee';
+    department_id: number | null;
+    position: string | null;
   };
 }
 
 @Component({
   selector: 'app-login',
-
+  standalone: true,
   templateUrl: './login.page.html',
-
   styleUrls: ['./login.page.scss'],
-
   imports: [
     IonContent,
     FormsModule,
     CommonModule
-  ],
+  ]
 })
+export class LoginPage implements OnDestroy {
 
-export class LoginPage {
-
-  // Datos escritos por el usuario.
   username = '';
   password = '';
-
-  // IP de la laptop donde se ejecuta XAMPP.
   serverIp = '';
 
-  // Indica si actualmente existe conexión.
   isOnline = navigator.onLine;
 
-  // Variables para controlar las animaciones.
   usernameFocused = false;
   passwordFocused = false;
 
@@ -66,57 +67,65 @@ export class LoginPage {
   hideLoginContent = false;
   loginSuccess = false;
 
-  // Mensaje que se muestra cuando ocurre un error.
   errorMessage = '';
 
-  // Guarda los temporizadores de las animaciones.
   private animationTimers: ReturnType<typeof setTimeout>[] = [];
-
-  // Evita enviar dos peticiones simultáneamente.
   private loginInProgress = false;
+  private destroyed = false;
 
-  // Angular inyecta los servicios necesarios.
   constructor(
     private router: Router,
     private apiConfig: ApiConfigService,
     public debug: ApiDebugService,
     private cdr: ChangeDetectorRef
   ) {
-
-    // Recupera la última IP guardada.
     this.serverIp = this.apiConfig.getServerIp();
 
-    // Detecta cuando se recupera la conexión.
-    window.addEventListener('online', () => {
-
-      this.isOnline = true;
-
-      this.errorMessage = '';
-
-      this.refreshView();
-    });
-
-    // Detecta cuando se pierde la conexión.
-    window.addEventListener('offline', () => {
-
-      this.isOnline = false;
-
-      this.errorMessage =
-        'Sin conexión. Verifica tu conexión e inténtalo nuevamente.';
-
-      this.refreshView();
-    });
+    window.addEventListener('online', this.onOnline);
+    window.addEventListener('offline', this.onOffline);
   }
 
-  // Actualiza la interfaz de Angular.
+  // Restablece el formulario cuando se vuelve al login.
+  ionViewWillEnter(): void {
+    this.clearAnimationTimers();
+
+    this.loginInProgress = false;
+    this.isLoginAnimating = false;
+    this.isLoginMoving = false;
+    this.authenticating = false;
+    this.authReturning = false;
+    this.hideLoginContent = false;
+    this.loginSuccess = false;
+
+    this.password = '';
+    this.errorMessage = '';
+    this.isOnline = navigator.onLine;
+    this.serverIp = this.apiConfig.getServerIp();
+  }
+
+  // Actualiza el estado de red.
+  private readonly onOnline = (): void => {
+    this.isOnline = true;
+    this.errorMessage = '';
+    this.refreshView();
+  };
+
+  private readonly onOffline = (): void => {
+    this.isOnline = false;
+    this.errorMessage =
+      'Sin conexión. Necesitas acceso al servidor para iniciar sesión.';
+
+    this.refreshView();
+  };
+
   private refreshView(): void {
-    this.cdr.detectChanges();
+    if (!this.destroyed) {
+      this.cdr.detectChanges();
+    }
   }
 
-  // MÉTODO PRINCIPAL DEL LOGIN
+  // Valida y envía las credenciales.
   async login(): Promise<void> {
-
-    // Evita ejecutar varias veces el Login.
     if (
       this.loginInProgress ||
       this.isLoginAnimating ||
@@ -125,170 +134,123 @@ export class LoginPage {
       return;
     }
 
-    // Limpia errores anteriores.
     this.errorMessage = '';
-
-    // VALIDACIÓN DE LA IP
 
     const ip = this.serverIp.trim();
 
-    if (!ip) {
-
-      this.errorMessage =
-        'Ingresa la IP del servidor.';
-
-      return;
-    }
-
-    // Valida una dirección IPv4.
     const ipv4Pattern =
       /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/;
 
     if (!ipv4Pattern.test(ip)) {
-
       this.errorMessage =
-        'Ingresa una IP válida, por ejemplo 192.168.1.103.';
-
+        'Ingresa una dirección IPv4 válida del servidor.';
       return;
     }
 
-    // DETECCIÓN DE CONEXIÓN
-
     if (!navigator.onLine) {
-
       this.isOnline = false;
-
       this.errorMessage =
-        'Sin conexión. Necesitas conexión para iniciar sesión.';
+        'Necesitas conexión para iniciar sesión.';
+      return;
+    }
 
+    if (!this.username.trim() || !this.password) {
+      this.errorMessage =
+        'Ingresa tu usuario y contraseña.';
       return;
     }
 
     this.isOnline = true;
-
-    // VALIDACIÓN DEL FORMULARIO
-
-    if (
-      !this.username.trim() ||
-      !this.password
-    ) {
-
-      this.errorMessage =
-        'Ingresa tu usuario y contraseña.';
-
-      return;
-    }
-
-    // Bloquea nuevos intentos mientras se procesa el Login.
     this.loginInProgress = true;
-
-    // Inicia las animaciones de autenticación.
     this.startAuthenticationAnimation();
 
-    // PETICIÓN A LA API
     try {
-
-      // Guarda la IP para que también la utilicen los Tabs.
       this.apiConfig.setServerIp(ip);
 
-      // Construye la URL usando la IP configurada.
-      const apiUrl =
-        this.apiConfig.getApiUrl('login.php');
+      const apiUrl = this.apiConfig.getApiUrl('login.php');
 
-      // Datos que se enviarán a PHP.
       const payload = {
         username: this.username.trim(),
         password: this.password
       };
 
-      // Registra la petición para el diagnóstico.
-      // ApiDebugService oculta la contraseña al mostrarla.
       this.debug.begin('POST', apiUrl, payload);
-
       this.refreshView();
 
-      // Envía usuario y contraseña mediante POST.
-      const response =
-        await axios.post<LoginResponse>(
-          apiUrl,
-          payload,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            },
-
-            timeout: 10000
-          }
-        );
-
-      // Comprueba la respuesta de PHP.
-      if (
-        !response.data.success ||
-        !response.data.user
-      ) {
-
-        // Conserva la respuesta HTTP para el diagnóstico.
-        const apiError: any = new Error(
-          response.data.message ||
-          'No fue posible iniciar sesión.'
-        );
-
-        apiError.response = response;
-
-        throw apiError;
-      }
-
-      // LOGIN CORRECTO
-
-      // Registra el resultado exitoso.
-      this.debug.success(
-        response.status,
-        response.data
+      const response = await axios.post<LoginResponse>(
+        apiUrl,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
       );
 
-      // Guarda temporalmente los datos del usuario.
+      if (this.destroyed) {
+        return;
+      }
+
+      if (
+        !response.data.success ||
+        !response.data.user ||
+        !response.data.token ||
+        !response.data.expires_at
+      ) {
+        throw Object.assign(
+          new Error(
+            response.data.message ||
+            'El servidor no devolvió una sesión válida.'
+          ),
+          { response }
+        );
+      }
+
+      // Guarda los datos públicos y la credencial temporal.
       localStorage.setItem(
         'user',
         JSON.stringify(response.data.user)
       );
 
-      this.refreshView();
+      sessionStorage.setItem(
+        'auth_token',
+        response.data.token
+      );
 
-      // Finaliza la autenticación correctamente.
+      sessionStorage.setItem(
+        'auth_expires_at',
+        response.data.expires_at
+      );
+
+      this.debug.success(
+        response.status,
+        response.data
+      );
+
       this.finishAuthenticationAnimation(true);
 
     } catch (error: any) {
-
-      // Registra el error para mostrarlo en el diagnóstico.
-      this.debug.failure(error);
-
-      // Intenta obtener el mensaje enviado por PHP.
-      const apiMessage =
-        error?.response?.data?.message;
-
-      if (!error?.response) {
-
-        this.errorMessage =
-          'No fue posible conectar con el servidor. Verifica la IP, el Wi-Fi y XAMPP.';
-
-      } else {
-
-        this.errorMessage =
-          apiMessage ||
-          error?.message ||
-          'Error al iniciar sesión.';
+      if (this.destroyed) {
+        return;
       }
 
-      this.refreshView();
+      this.debug.failure(error);
 
-      // Finaliza la autenticación con error.
+      this.errorMessage = error?.response
+        ? (
+            error.response.data?.message ||
+            error.message ||
+            'No fue posible iniciar sesión.'
+          )
+        : 'No fue posible conectar. Revisa la IP, la red y XAMPP.';
+
       this.finishAuthenticationAnimation(false);
     }
   }
 
-  // CANCELAR TEMPORIZADORES ANTERIORES
+  // Cancela los temporizadores pendientes.
   private clearAnimationTimers(): void {
-
     this.animationTimers.forEach(timer => {
       clearTimeout(timer);
     });
@@ -296,10 +258,8 @@ export class LoginPage {
     this.animationTimers = [];
   }
 
-  // INICIO DE LA ANIMACIÓN
+  // Inicia la animación existente.
   private startAuthenticationAnimation(): void {
-
-    // Cancela animaciones anteriores.
     this.clearAnimationTimers();
 
     this.isLoginAnimating = true;
@@ -309,89 +269,68 @@ export class LoginPage {
 
     this.refreshView();
 
-    // Mueve el formulario.
     this.animationTimers.push(
       setTimeout(() => {
-
         this.isLoginMoving = true;
-
         this.refreshView();
-
       }, 300)
     );
 
-    // Muestra el indicador de autenticación.
     this.animationTimers.push(
       setTimeout(() => {
-
         this.authenticating = true;
-
         this.refreshView();
-
       }, 500)
     );
   }
 
-  // FINAL DE LA ANIMACIÓN
+  // Finaliza la animación y navega si hubo éxito.
   private finishAuthenticationAnimation(
     success: boolean
   ): void {
-
-    // Evita que los temporizadores del inicio
-    // sigan modificando la interfaz.
     this.clearAnimationTimers();
 
-    // Oculta el indicador de autenticación.
     this.authReturning = true;
     this.authenticating = false;
-
-    // Regresa el formulario a su posición original.
     this.isLoginMoving = false;
 
     this.refreshView();
 
     this.animationTimers.push(
       setTimeout(() => {
-
-        // Elimina la inclinación del formulario.
         this.isLoginAnimating = false;
-
         this.authReturning = false;
 
-        if (success) {
+        this.hideLoginContent = success;
+        this.loginSuccess = success;
 
-          // Muestra la confirmación del Login.
-          this.hideLoginContent = true;
-          this.loginSuccess = true;
-
-        } else {
-
-          // Si falla, mantiene visible el formulario.
-          this.hideLoginContent = false;
-          this.loginSuccess = false;
-
-          // Permite intentar iniciar sesión nuevamente.
+        if (!success) {
           this.loginInProgress = false;
         }
 
         this.refreshView();
-
       }, 500)
     );
 
-    // NAVEGACIÓN DESPUÉS DEL LOGIN
     if (success) {
-
       this.animationTimers.push(
         setTimeout(() => {
-
-          this.router.navigateByUrl(
+          void this.router.navigateByUrl(
             '/tabs/tab1',
             { replaceUrl: true }
           );
-
         }, 1500)
       );
     }
+  }
+
+  // Libera eventos y temporizadores.
+  ngOnDestroy(): void {
+    this.destroyed = true;
+
+    this.clearAnimationTimers();
+
+    window.removeEventListener('online', this.onOnline);
+    window.removeEventListener('offline', this.onOffline);
   }
 }
