@@ -238,3 +238,11 @@ ion-content {
     max-width: 60%;
   }
 }
+/* Mensajes y botones durante las solicitudes. */
+.profile-error { padding: 12px; border: 1px solid #dc6180; border-radius: 8px; color: #ffb3c5; margin-bottom: 16px; }
+.logout-button + .logout-button { margin-top: 12px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.value { overflow-wrap: anywhere; }
+
+.profile-edit label { display:block; margin:14px 0; }
+.profile-edit input { display:block; width:100%; padding:10px; margin-top:6px; background:#32364a; color:white; border:1px solid #777b92; border-radius:6px; }

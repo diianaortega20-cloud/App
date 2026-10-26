@@ -316,7 +316,8 @@ export class LoginPage implements OnDestroy {
       this.animationTimers.push(
         setTimeout(() => {
           void this.router.navigateByUrl(
-            '/tabs/tab1',
+            JSON.parse(localStorage.getItem('user') || 'null')?.role === 'admin'
+              ? '/tabs/tab1' : '/tabs/tab3',
             { replaceUrl: true }
           );
         }, 1500)

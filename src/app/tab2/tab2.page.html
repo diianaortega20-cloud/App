@@ -1,72 +1,33 @@
+<!-- Perfil real obtenido mediante el token de la sesión actual. -->
 <ion-content [fullscreen]="true">
-
   <div class="profile-page">
-
-    <div class="profile-card">
-
+    <div class="profile-card" aria-live="polite">
       <div class="profile-header">
-
-        <div class="avatar">
-          {{ initial }}
-        </div>
-
-        <h1>Mi Perfil</h1>
-
-        <p>
-          Información de tu cuenta
-        </p>
-
+        <div class="avatar">{{ initial }}</div>
+        <h1>Mi perfil</h1>
+        <p>Información de tu cuenta</p>
       </div>
-
       <div class="profile-body">
-
-        <div class="profile-row">
-          <span class="label">NOMBRE</span>
-
-          <span class="value">
-            {{ user.name }}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="label">USUARIO</span>
-
-          <span class="value">
-            {{ user.username }}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="label">CORREO</span>
-
-          <span class="value">
-            {{ user.email }}
-          </span>
-        </div>
-
-        <div class="profile-row">
-          <span class="label">ESTADO</span>
-
-          <span
-            class="status"
-            [class.active]="user.status === 'active'"
-          >
-            ACTIVO
-          </span>
-        </div>
-
-        <button
-          type="button"
-          class="logout-button"
-          (click)="logout()"
-        >
-          CERRAR SESIÓN
-        </button>
-
+        <p *ngIf="loading">Consultando perfil…</p>
+        <div *ngIf="errorMessage" class="profile-error" role="alert">{{ errorMessage }}</div>
+        <ng-container *ngIf="user as u">
+          <div class="profile-row"><span class="label">NOMBRE</span><span class="value">{{ u.name }}</span></div>
+          <div class="profile-row"><span class="label">USUARIO</span><span class="value">{{ u.username }}</span></div>
+          <div class="profile-row"><span class="label">CORREO</span><span class="value">{{ u.email }}</span></div>
+          <div class="profile-row"><span class="label">ROL</span><span class="value">{{ u.role === 'admin' ? 'Administrador' : 'Empleado' }}</span></div>
+          <div class="profile-row"><span class="label">PUESTO</span><span class="value">{{ u.position || 'Sin asignar' }}</span></div>
+          <div class="profile-row"><span class="label">DEPARTAMENTO</span><span class="value">{{ u.department_name || 'Sin asignar' }}</span></div>
+          <div class="profile-row"><span class="label">ESTADO</span><span class="status" [class.active]="u.status === 'active'">{{ u.status === 'active' ? 'Activo' : 'Inactivo' }}</span></div>
+          <form (ngSubmit)="saveProfile()" class="profile-edit">
+            <label>Nombre<input name="name" [(ngModel)]="editName" maxlength="100" required [disabled]="saving || closing"></label>
+            <label>Correo<input name="email" type="email" [(ngModel)]="editEmail" maxlength="120" required [disabled]="saving || closing"></label>
+            <button class="logout-button" type="submit" [disabled]="saving || closing || loading">{{ saving ? 'Guardando…' : 'Guardar mis datos' }}</button>
+          </form>
+          <p *ngIf="message" role="status">{{ message }}</p>
+        </ng-container>
+        <button type="button" class="logout-button" (click)="loadProfile()" [disabled]="loading || closing || saving">Actualizar perfil</button>
+        <button type="button" class="logout-button" (click)="logout()" [disabled]="loading || closing || saving">{{ closing ? 'Cerrando sesión…' : 'Cerrar sesión' }}</button>
       </div>
-
     </div>
-
   </div>
-
 </ion-content>

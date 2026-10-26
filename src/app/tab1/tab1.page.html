@@ -169,6 +169,22 @@
             >
           </p>
 
+          <p>
+            <label for="role">Rol</label>
+            <select id="role" name="role" [(ngModel)]="form.role" [disabled]="saving">
+              <option value="employee">Empleado</option><option value="admin">Administrador</option>
+            </select>
+          </p>
+          <p>
+            <label for="department">Departamento</label>
+            <select id="department" name="department" [(ngModel)]="form.department_id" [disabled]="saving">
+              <option [ngValue]="null">Sin asignar</option>
+              <option *ngFor="let d of departments" [ngValue]="+d.id" [disabled]="d.status !== 'active'">{{ d.name }}{{ d.status !== 'active' ? ' (inactivo)' : '' }}</option>
+            </select>
+          </p>
+          <p class="full"><label for="position">Puesto</label>
+            <input id="position" name="position" [(ngModel)]="form.position" maxlength="100" [disabled]="saving">
+          </p>
           <p class="full">
             <label for="status">Estado</label>
 
@@ -249,6 +265,7 @@
               <th>Usuario</th>
               <th>Nombre</th>
               <th>Correo</th>
+              <th>Rol / departamento / puesto</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -256,7 +273,7 @@
 
           <tbody>
             <tr *ngIf="!loading && users.length === 0">
-              <td colspan="6">
+              <td colspan="7">
                 No hay usuarios para mostrar.
               </td>
             </tr>
@@ -266,6 +283,7 @@
               <td>{{ user.username }}</td>
               <td>{{ user.name }}</td>
               <td>{{ user.email }}</td>
+              <td>{{ user.role === 'admin' ? 'Administrador' : 'Empleado' }}<br>{{ user.department_name || 'Sin departamento' }}<br>{{ user.position || 'Sin puesto' }}</td>
 
               <td>
                 <span

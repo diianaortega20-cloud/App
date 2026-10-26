@@ -1,3 +1,4 @@
+import { BusinessService } from '../services/business.service';
 /**
  * Administra usuarios y mantiene una copia local.
  * Sincroniza la consulta al recuperar conexión con la API.
@@ -50,6 +51,7 @@ interface CachedUsers {
 export class Tab1Page implements OnInit, OnDestroy {
 
   users: User[] = [];
+  departments: any[] = [];
   form: UserForm = this.emptyForm();
 
   editing = false;
@@ -74,7 +76,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private userService: UserService,
     private cdr: ChangeDetectorRef,
     public debug: ApiDebugService,
-    private apiConfig: ApiConfigService
+    private apiConfig: ApiConfigService,
+    private business: BusinessService
   ) {}
 
   // Texto del estado actual.
@@ -138,6 +141,11 @@ export class Tab1Page implements OnInit, OnDestroy {
   // Consulta al entrar a la pantalla.
   ionViewWillEnter(): void {
     this.active = true;
+    if (navigator.onLine) {
+      void this.business.request('GET', 'departments.php')
+        .then(rows => { this.departments = rows; this.refreshView(); })
+        .catch(() => { /* El CRUD y el caché conservan su manejo de errores. */ });
+    }
     void this.loadUsers();
   }
 
@@ -441,7 +449,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       email: user.email,
       name: user.name,
       password: '',
-      status: user.status
+      status: user.status,
+      role: user.role || 'employee',
+      department_id: user.department_id ?? null,
+      position: user.position ?? null
     };
   }
 
@@ -547,7 +558,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       email: '',
       name: '',
       password: '',
-      status: 'active'
+      status: 'active',
+      role: 'employee',
+      department_id: null,
+      position: null
     };
   }
 

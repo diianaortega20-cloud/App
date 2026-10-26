@@ -12,6 +12,10 @@ export interface User {
   name: string;
 
   status: 'active' | 'inactive';
+  role: 'admin' | 'employee';
+  department_id: number | null;
+  position: string | null;
+  department_name?: string | null;
 
   created_at?: string;
 
@@ -33,4 +37,8 @@ export interface UserForm {
   password: string;
 
   status: 'active' | 'inactive';
+  role: 'admin' | 'employee';
+  department_id: number | null;
+  position: string | null;
+  department_name?: string | null;
 }

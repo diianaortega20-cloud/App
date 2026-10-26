@@ -1,0 +1,21 @@
+/* Mantiene la paleta existente y adapta los nuevos módulos a móvil y escritorio. */
+ion-content { --background: linear-gradient(135deg, #ea5c54, #bb6dec); }
+.management { max-width:1170px; margin:auto; padding:24px; color:#e1e3ec; font-family:Arial,sans-serif; }
+header, section { background:#252938; border-radius:12px; padding:24px; margin-bottom:20px; }
+header h1 { margin-top:0; } h2,h3 { margin-top:0; } p { line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+nav { display:flex; flex-wrap:wrap; gap:10px; margin:20px 0; }
+button { min-height:40px; padding:9px 17px; border:1px solid #dc6180; border-radius:22px; color:#ffadc4; background:#252938; cursor:pointer; font:inherit; }
+button:hover:not(:disabled), button.selected { background:#954c70; color:white; }
+button:disabled { opacity:.45; cursor:not-allowed; }
+fieldset { min-width:0; border:1px solid #62677e; padding:18px; border-radius:10px; margin-bottom:20px; }
+legend { padding:0 8px; } label { display:block; margin-bottom:15px; line-height:1.5; }
+input,textarea,select { display:block; box-sizing:border-box; width:100%; padding:11px; margin-top:6px; border:1px solid #62677e; border-radius:6px; background:#32364a; color:#fff; font:inherit; }
+textarea { min-height:85px; resize:vertical; } .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.actions { display:flex; flex-wrap:wrap; gap:9px; } .hint { color:#b8bdd1; font-size:13px; } .filter { max-width:320px; }
+.record { padding:20px; border:1px solid #62677e; border-radius:10px; margin:16px 0; background:#2e3244; }
+.record-heading { display:flex; gap:14px; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; }
+.badge { padding:5px 12px; border:1px solid #bb6dec; border-radius:20px; white-space:nowrap; }
+.error,.success { padding:16px; border-radius:8px; background:#252938; } .error { color:#ffb3c5; border:1px solid #dc6180; } .success { color:#70e0ac; border:1px solid #42a77b; }
+.table { overflow:auto; } table { width:100%; min-width:650px; border-collapse:collapse; } td,th { text-align:left; padding:12px; border-bottom:1px solid #62677e; }
+.followup { border:2px solid #bb6dec; }
+@media(max-width:700px) { .management { padding:14px; } header,section { padding:16px; } .grid { grid-template-columns:1fr; } }

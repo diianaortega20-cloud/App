@@ -1,17 +1,102 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>
-      Tab 3
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
-
+<!-- Módulos empresariales con permisos y datos reales. -->
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Tab 3</ion-title>
-    </ion-toolbar>
-  </ion-header>
+  <main class="management">
+    <header><h1>Gestión interna</h1><p>Organiza las actividades y solicitudes de tu empresa.</p>
+      <button (click)="load()" [disabled]="busy">{{ loading ? 'Consultando…' : 'Actualizar datos' }}</button>
+    </header>
+    <nav aria-label="Módulos">
+      <button *ngIf="admin" (click)="select('departments')" [class.selected]="section === 'departments'" [disabled]="busy">Departamentos</button>
+      <button (click)="select('tasks')" [class.selected]="section === 'tasks'" [disabled]="busy">{{ admin ? 'Tareas' : 'Mis tareas' }}</button>
+      <button (click)="select('requests')" [class.selected]="section === 'requests'" [disabled]="busy">Solicitudes</button>
+    </nav>
+    <p *ngIf="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+    <p *ngIf="message" class="success" role="status">{{ message }}</p>
+    <p *ngIf="saving">Guardando…</p>
+    <p *ngIf="loading">Consultando el servidor…</p>
 
-  <app-explore-container name="Tab 3 page"></app-explore-container>
+    <section *ngIf="section === 'departments' && admin">
+      <h2>Departamentos</h2>
+      <form (ngSubmit)="saveDepartment()">
+        <fieldset [disabled]="busy">
+          <legend>{{ departmentForm.id ? 'Editar departamento' : 'Nuevo departamento' }}</legend>
+          <label>Nombre<input name="departmentName" [(ngModel)]="departmentForm.name" maxlength="100" required></label>
+          <label>Descripción<textarea name="departmentDescription" [(ngModel)]="departmentForm.description" maxlength="500"></textarea></label>
+          <div class="actions"><button type="submit">Guardar departamento</button><button type="button" (click)="cancelDepartment()">Limpiar</button></div>
+        </fieldset>
+      </form>
+      <div class="table"><table><thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+        <tr *ngFor="let d of departments"><td>{{ d.name }}</td><td>{{ d.description || 'Sin descripción' }}</td><td>{{ label(d.status) }}</td>
+          <td><div class="actions"><button (click)="editDepartment(d)" [disabled]="busy">Editar</button><button (click)="toggleDepartment(d)" [disabled]="busy">{{ d.status === 'active' ? 'Desactivar' : 'Activar' }}</button></div></td></tr>
+        <tr *ngIf="!departments.length"><td colspan="4">Sin departamentos.</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section *ngIf="section === 'tasks'">
+      <h2>{{ admin ? 'Tareas de la empresa' : 'Mis tareas' }}</h2>
+      <form *ngIf="admin" (ngSubmit)="saveTask()">
+        <fieldset [disabled]="busy">
+          <legend>{{ taskForm.id ? 'Editar tarea' : 'Nueva tarea' }}</legend>
+          <label>Título<input name="taskTitle" [(ngModel)]="taskForm.title" maxlength="150" required></label>
+          <label>Descripción<textarea name="taskDescription" [(ngModel)]="taskForm.description" maxlength="2000"></textarea></label>
+          <div class="grid">
+            <label>Responsable<select name="taskEmployee" [(ngModel)]="taskForm.assigned_to" required><option [ngValue]="null">Selecciona un empleado</option><option *ngFor="let e of activeEmployees" [ngValue]="+e.id">{{ e.name }} · {{ e.department_name }}</option></select></label>
+            <label>Prioridad<select name="taskPriority" [(ngModel)]="taskForm.priority"><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+            <label>Fecha límite<input name="taskDue" type="date" [(ngModel)]="taskForm.due_date" required></label>
+          </div>
+          <p class="hint">El responsable necesita un departamento activo. Asigna su área desde Usuarios.</p>
+          <div class="actions"><button type="submit">Guardar tarea</button><button type="button" (click)="cancelTaskEdit()">Limpiar</button></div>
+        </fieldset>
+      </form>
+      <label class="filter">Filtrar estado<select [(ngModel)]="statusFilter"><option value="">Todos</option><option value="pending">Pendiente</option><option value="in_progress">En proceso</option><option value="completed">Completada</option><option value="cancelled">Cancelada</option></select></label>
+      <article *ngFor="let t of visibleTasks" class="record">
+        <div class="record-heading"><h3>{{ t.title }}</h3><span class="badge">{{ label(t.status) }}</span></div>
+        <p>{{ t.description || 'Sin descripción' }}</p>
+        <p>Responsable: <strong>{{ t.assigned_name }}</strong> · {{ t.department_name }}</p>
+        <p>Prioridad: {{ label(t.priority) }} · Fecha límite: {{ t.due_date }}</p>
+        <p *ngIf="t.completed_at">Completada: {{ t.completed_at }} UTC</p>
+        <div class="actions">
+          <button *ngIf="admin && (t.status === 'pending' || t.status === 'in_progress')" (click)="editTask(t)" [disabled]="busy">Editar</button>
+          <button *ngIf="t.status === 'pending'" (click)="taskStatus(t, 'in_progress')" [disabled]="busy">Iniciar</button>
+          <button *ngIf="t.status === 'in_progress'" (click)="taskStatus(t, 'completed')" [disabled]="busy">Completar</button>
+          <button *ngIf="admin && (t.status === 'pending' || t.status === 'in_progress')" (click)="taskStatus(t, 'cancelled')" [disabled]="busy">Cancelar tarea</button>
+        </div>
+      </article>
+      <p *ngIf="!visibleTasks.length && !loading">No hay tareas con este filtro.</p>
+    </section>
+
+    <section *ngIf="section === 'requests'">
+      <h2>Solicitudes internas</h2>
+      <form (ngSubmit)="saveRequest()">
+        <fieldset [disabled]="busy">
+          <legend>{{ requestForm.id ? 'Editar solicitud' : 'Nueva solicitud' }}</legend>
+          <label>Asunto<input name="requestSubject" [(ngModel)]="requestForm.subject" maxlength="150" required></label>
+          <label>Descripción<textarea name="requestDescription" [(ngModel)]="requestForm.description" maxlength="2000" required></textarea></label>
+          <label>Departamento que debe atender<select name="requestDepartment" [(ngModel)]="requestForm.department_id" required><option [ngValue]="null">Selecciona un departamento</option><option *ngFor="let d of activeDepartments" [ngValue]="+d.id">{{ d.name }}</option></select></label>
+          <div class="actions"><button type="submit">Guardar solicitud</button><button type="button" (click)="cancelRequestEdit()">Limpiar</button></div>
+        </fieldset>
+      </form>
+      <label class="filter">Filtrar estado<select [(ngModel)]="statusFilter"><option value="">Todos</option><option value="pending">Pendiente</option><option value="in_review">En revisión</option><option value="resolved">Resuelta</option><option value="rejected">Rechazada</option><option value="cancelled">Cancelada</option></select></label>
+      <section *ngIf="selectedRequest as r" class="followup">
+        <h3>Seguimiento: {{ r.subject }}</h3>
+        <form *ngIf="admin" (ngSubmit)="assignRequest()"><fieldset [disabled]="busy"><legend>Asignar responsable</legend>
+          <label>Empleado del departamento destino<select name="assignment" [(ngModel)]="assignment" required><option [ngValue]="null">Selecciona un responsable</option><option *ngFor="let e of requestAssignees" [ngValue]="+e.id">{{ e.name }}</option></select></label>
+          <button type="submit">Asignar y poner en revisión</button>
+        </fieldset></form>
+        <form (ngSubmit)="finishRequest()"><fieldset [disabled]="busy"><legend>Cambiar estado</legend>
+          <label>Nuevo estado<select name="nextStatus" [(ngModel)]="nextRequestStatus"><option *ngIf="canResolve(r)" value="resolved">Resuelta</option><option *ngIf="admin" value="rejected">Rechazada</option><option *ngIf="canCancel(r)" value="cancelled">Cancelada</option></select></label>
+          <label>Respuesta o motivo<textarea name="resolution" [(ngModel)]="resolution" maxlength="2000" [required]="nextRequestStatus !== 'cancelled'"></textarea></label>
+          <div class="actions"><button type="submit">Guardar seguimiento</button><button type="button" (click)="selectedRequest = null">Cerrar</button></div>
+        </fieldset></form>
+      </section>
+      <article *ngFor="let r of visibleRequests" class="record">
+        <div class="record-heading"><h3>{{ r.subject }}</h3><span class="badge">{{ label(r.status) }}</span></div>
+        <p>{{ r.description }}</p><p>Solicitante: {{ r.requested_name }} · Departamento destino: {{ r.department_name }}</p>
+        <p>Responsable: {{ r.assigned_name || 'Sin asignar' }}</p><p *ngIf="r.resolution">Respuesta: {{ r.resolution }}</p>
+        <p *ngIf="r.resolved_at">Cierre: {{ r.resolved_at }} UTC</p>
+        <div class="actions"><button *ngIf="canEditRequest(r)" (click)="editRequest(r)" [disabled]="busy">Editar</button>
+          <button *ngIf="(r.status === 'pending' || r.status === 'in_review') && (admin || canResolve(r) || canCancel(r))" (click)="openRequest(r)" [disabled]="busy">Dar seguimiento</button></div>
+      </article>
+      <p *ngIf="!visibleRequests.length && !loading">No hay solicitudes con este filtro.</p>
+    </section>
+  </main>
 </ion-content>

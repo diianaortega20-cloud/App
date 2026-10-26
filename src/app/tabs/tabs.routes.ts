@@ -1,13 +1,17 @@
+import { sessionGuard, administratorGuard } from '../services/session.guard';
 import { Routes } from '@angular/router';
 import { TabsPage } from './tabs.page';
 
 export const routes: Routes = [
   {
     path: 'tabs',
+    canActivate: [sessionGuard],
+    canActivateChild: [sessionGuard],
     component: TabsPage,
     children: [
       {
         path: 'tab1',
+        canActivate: [administratorGuard],
         loadComponent: () => import('../tab1/tab1.page').then((m) => m.Tab1Page),
       },
       {

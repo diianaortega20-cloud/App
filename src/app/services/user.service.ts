@@ -102,7 +102,10 @@ export class UserService {
         email: form.email,
         name: form.name,
         password: form.password,
-        status: form.status
+        status: form.status,
+        role: form.role,
+        department_id: form.department_id,
+        position: form.position
       }
     );
 
@@ -119,7 +122,10 @@ export class UserService {
         email: form.email,
         name: form.name,
         password: form.password,
-        status: form.status
+        status: form.status,
+        role: form.role,
+        department_id: form.department_id,
+        position: form.position
       }
     );
 
