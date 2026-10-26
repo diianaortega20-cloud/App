@@ -1,0 +1,29 @@
+<ion-header><ion-toolbar><ion-title>Dashboard</ion-title></ion-toolbar></ion-header>
+<ion-content>
+  <main class="dashboard">
+    <header class="intro"><span class="eyebrow">GESTIÓN EMPRESARIAL · D3.JS</span><h1>La actividad de tu empresa, en datos</h1><p>{{ scope || 'Consulta de tareas y solicitudes' }}</p></header>
+    <form class="filters" (ngSubmit)="load()">
+      <label>Desde<input type="date" name="from" [(ngModel)]="from" [disabled]="loading" required></label>
+      <label>Hasta<input type="date" name="to" [(ngModel)]="to" [disabled]="loading" required></label>
+      <label>Departamento<select name="department" [(ngModel)]="department" [disabled]="loading"><option value="">Todos los departamentos</option><option *ngFor="let d of departments" [value]="d.id">{{ d.name }}</option></select></label>
+      <button type="submit" [disabled]="loading">{{ loading ? 'Consultando…' : 'Actualizar gráficas' }}</button>
+    </form>
+    <p class="connection" role="status">{{ online ? 'En línea según el dispositivo' : 'Sin conexión detectada' }} · Las consultas requieren acceso a la API.</p>
+    <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+    <p *ngIf="loading" role="status">Consultando información de MySQL…</p>
+    <p *ngIf="updated" class="stamp">Periodo consultado: {{ applied }}<br>Última actualización: {{ updated }}</p>
+    <p class="help">Toca una barra, segmento o punto para consultar su valor. También puedes usar Tab y Enter. Los datos completos están en «Ver datos».</p>
+    <div class="detail" role="status" aria-live="polite">{{ detail || 'Selecciona un dato en las gráficas para explorar los resultados.' }}</div>
+    <div class="charts" #plots>
+      <article *ngFor="let title of titles; let i = index">
+        <div class="heading"><div><span class="eyebrow">0{{ i + 1 }} / ANÁLISIS</span><h2>{{ title }}</h2></div><strong>{{ updated ? totals[i] : '—' }}</strong></div>
+        <p class="note">{{ notes[i] }}</p>
+        <div class="chart" [attr.data-chart]="i"></div>
+        <p class="empty" *ngIf="!loading && updated && totals[i] === 0">Sin registros para esta gráfica en el periodo y alcance seleccionados.</p>
+        <ul class="legend" *ngIf="i === 1 && updated"><li *ngFor="let row of values[i]; let j = index"><span [style.background]="colors[j]"></span>{{ row.label }}: {{ row.total }}</li></ul>
+        <details *ngIf="updated"><summary>Ver datos completos</summary><div class="table"><table><thead><tr><th>Concepto</th><th>Cantidad</th></tr></thead><tbody><tr *ngFor="let row of values[i]"><td>{{ row.label }}</td><td>{{ row.total }}</td></tr></tbody></table></div></details>
+      </article>
+    </div>
+    <p class="footnote">Las primeras dos gráficas incluyen todos los estados de tareas creadas en el periodo. La tercera cuenta tareas por fecha de finalización, por eso su total puede diferir. Las fechas de consulta se interpretan en UTC.</p>
+  </main>
+</ion-content>

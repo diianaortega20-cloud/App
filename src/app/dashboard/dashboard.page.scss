@@ -1,0 +1,18 @@
+/* Conserva la paleta de la app y da espacio a gráficas y controles táctiles. */
+ion-content { --background:linear-gradient(135deg,#ea5c54,#bb6dec); }
+.dashboard { max-width:1240px; margin:auto; padding:26px; color:#f0f1f8; font-family:Arial,sans-serif; }
+.intro,.filters,article,.detail { background:#252938; border:1px solid #ffffff16; border-radius:16px; }
+.intro { padding:30px; margin-bottom:18px; } h1 { font-size:clamp(25px,4vw,38px); margin:12px 0; letter-spacing:-1px; } p { line-height:1.6; } .eyebrow { font-size:11px; letter-spacing:1.6px; color:#e0b5f5; } h2 { font-size:20px; margin:10px 0; }
+.filters { display:grid; grid-template-columns:1fr 1fr 1.4fr auto; gap:16px; padding:22px; align-items:end; }
+label { font-size:13px; } input,select { display:block; width:100%; box-sizing:border-box; margin-top:8px; padding:12px; border:1px solid #767b91; border-radius:8px; background:#32364a; color:#fff; font:inherit; min-height:44px; color-scheme:dark; }
+button { min-height:44px; padding:12px 20px; border:1px solid #ffadc4; background:#934769; border-radius:24px; color:white; cursor:pointer; font:inherit; } button:disabled { opacity:.5; }
+.connection,.stamp,.help,.footnote { font-size:13px; color:#242330; } .error { background:#442737; border:1px solid #ffadc4; padding:16px; border-radius:12px; color:#fff; }
+.detail { padding:16px 20px; margin:18px 0; min-height:52px; color:#f2cb78; line-height:1.5; }
+.charts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start; }
+article { min-width:0; padding:22px; } .heading { display:flex; justify-content:space-between; gap:12px; } strong { font-size:32px; color:#f2cb78; } .note { color:#c3c6d7; font-size:12px; min-height:38px; }
+.chart { overflow:auto; max-height:600px; } .chart:empty { display:none; } .empty { padding:36px 12px; text-align:center; color:#c3c6d7; }
+.legend { padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:12px; font-size:12px; } .legend span { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+summary { cursor:pointer; color:#dfbbff; padding:14px 0; } .table { overflow:auto; max-height:300px; } table { width:100%; border-collapse:collapse; font-size:13px; } th,td { text-align:left; padding:10px; border-bottom:1px solid #62677e; overflow-wrap:anywhere; }
+:host ::ng-deep svg [role=button] { cursor:pointer; outline-offset:3px; } :host ::ng-deep svg [role=button]:hover,:host ::ng-deep svg [role=button]:focus { stroke:#fff; stroke-width:3px; }
+@media(max-width:800px) { .filters { grid-template-columns:1fr 1fr; } .charts { grid-template-columns:1fr; } }
+@media(max-width:450px) { .dashboard { padding:12px; } .intro { padding:20px; } .filters { grid-template-columns:1fr; padding:16px; } article { padding:16px; } }

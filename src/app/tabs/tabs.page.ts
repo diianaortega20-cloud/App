@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel } from '@ionic/angular';
 import { addIcons } from 'ionicons';
-import { triangle, images, square, serverOutline, personCircle } from 'ionicons/icons';
+import { triangle, images, square, serverOutline, personCircle, statsChartOutline } from 'ionicons/icons';
 
 @Component({
   selector: 'app-tabs',
@@ -18,6 +18,6 @@ export class TabsPage {
   }
 
   constructor() {
-    addIcons({ triangle, images, square, serverOutline, personCircle });
+    addIcons({ triangle, images, square, serverOutline, personCircle, statsChartOutline });
   }
 }

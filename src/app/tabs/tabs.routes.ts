@@ -10,6 +10,10 @@ export const routes: Routes = [
     component: TabsPage,
     children: [
       {
+        path: 'dashboard',
+        loadComponent: () => import('../dashboard/dashboard.page').then(m => m.DashboardPage),
+      },
+      {
         path: 'tab1',
         canActivate: [administratorGuard],
         loadComponent: () => import('../tab1/tab1.page').then((m) => m.Tab1Page),
