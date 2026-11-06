@@ -35,3 +35,19 @@ npm-debug.log*
 /.gradle
 
 /android/.idea/
+
+
+# Backend PHP - configuracion local
+/backend/config/database.php
+/backend/config/database.local.php
+
+# Variables de entorno y credenciales
+.env
+.env.*
+!.env.example
+
+# Archivos SQL con datos locales
+*.sql.gz
+
+# Configuracion local de Android
+/android/local.properties
